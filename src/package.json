@@ -1,0 +1,14 @@
+{
+  "name": "mytbl-box",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  },
+  "dependencies": {
+    "@fontsource/baloo-2": "^5.2.7",
+    "@fontsource/lora": "^5.2.8",
+    "@fontsource/plus-jakarta-sans": "^5.2.8",
+    "pdfjs-dist": "^3.11.174"
+  }
+}

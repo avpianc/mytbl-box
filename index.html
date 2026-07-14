@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MyTBL Box — Koleksi Komik</title>
+  <meta name="description" content="Kelola koleksi komik, manga, dan buku pribadi kamu.">
+  <meta name="theme-color" content="#FF5A3C">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MyTBL Box">
+
+  <link rel="stylesheet" href="app.css">
+</head>
+<body class="font-sans antialiased min-h-screen pb-24">
+
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center gap-4 justify-between">
+      <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-display font-extrabold tracking-tight text-ink shrink-0">
+          MY<span class="text-coral">TBL</span> BOX
+        </h1>
+        <span class="hidden sm:inline-block text-[9px] font-display font-bold uppercase tracking-wider bg-sunny text-ink px-2.5 py-1 rounded-full border-2 border-ink -rotate-2 shadow-pop-sm">Koleksiku!</span>
+        <div class="hidden md:flex items-center gap-2 ml-1">
+          <div class="stat-chip">
+            <svg class="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            <span class="text-[11px] font-bold text-ink"><span id="stat-total">0</span> Judul</span>
+          </div>
+          <div class="stat-chip">
+            <svg class="w-3.5 h-3.5 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 10v2m0-2c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-[11px] font-bold text-ink" id="stat-value">Rp 0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 flex-1 max-w-md min-w-[200px]">
+        <div class="relative flex-1">
+          <svg class="w-4 h-4 text-ink/40 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+          <input type="search" id="search-input" placeholder="Cari judul atau pengarang..."
+                 class="input-field !rounded-full pl-9">
+        </div>
+        <div class="relative">
+          <button id="btn-settings" class="btn-icon" title="Pengaturan &amp; Backup" aria-haspopup="true" aria-expanded="false">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </button>
+          <div id="settings-menu" class="hidden absolute right-0 mt-2 w-56 bg-white border-[2.5px] border-ink rounded-xl shadow-pop overflow-hidden z-50 animate-popIn">
+            <button data-action="export" class="w-full text-left px-4 py-3 text-xs font-bold text-ink hover:bg-sunny/30 transition flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-ink/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+              Ekspor Backup (.json)
+            </button>
+            <button data-action="import" class="w-full text-left px-4 py-3 text-xs font-bold text-ink hover:bg-sunny/30 transition flex items-center gap-2.5 border-t-2 border-ink/10">
+              <svg class="w-4 h-4 text-ink/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V3m0 13l-4-4m4 4l4-4M4 19h16"/></svg>
+              Impor Backup (.json)
+            </button>
+            <input type="file" id="import-file-input" accept="application/json" class="hidden">
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ MAIN ============ -->
+  <main class="max-w-7xl mx-auto px-6 mt-8">
+
+    <div id="bulk-bar" class="hidden items-center justify-between gap-3 flex-wrap bg-ink text-white px-5 py-3.5 rounded-2xl border-[2.5px] border-ink shadow-pop mb-6">
+      <div class="flex items-center gap-4">
+        <span class="text-xs font-display font-bold"><span id="bulk-count">0</span> komik dipilih</span>
+        <button data-action="bulk-select-all-visible" id="bulk-select-all-btn" class="text-[11px] font-bold text-white/70 hover:text-white underline underline-offset-2">Pilih semua yang tampil</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button data-action="bulk-cancel" class="bg-white/10 hover:bg-white/20 text-white text-xs font-display font-bold uppercase px-4 py-2.5 rounded-xl border-2 border-white/20 transition">Batal</button>
+        <button data-action="bulk-delete" class="bg-coral hover:opacity-90 text-white text-xs font-display font-bold uppercase px-4 py-2.5 rounded-xl border-2 border-white/20 transition">Hapus Terpilih</button>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between border-b-[3px] border-ink/10 pb-6 mb-8">
+      <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1" id="publisher-filters">
+        <button data-publisher="all" class="pill-active">Semua Penerbit</button>
+      </div>
+
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="flex gap-4 border-l-[3px] border-ink/10 pl-2 md:pl-6" id="status-tabs">
+          <button data-status="all" class="status-tab-active">Semua</button>
+          <button data-status="Wishlist" class="status-tab">Wishlist</button>
+          <button data-status="On Going" class="status-tab">On Going</button>
+          <button data-status="Sudah Lengkap" class="status-tab">Lengkap</button>
+        </div>
+        <select id="sort-select" data-btn-class="!w-auto !py-2 !text-[11px] !rounded-full" class="input-field !w-auto !py-2 !text-[11px] cursor-pointer !rounded-full">
+          <option value="added-desc">Terbaru Ditambahkan</option>
+          <option value="title-asc">Judul A–Z</option>
+          <option value="title-desc">Judul Z–A</option>
+          <option value="price-desc">Total Tertinggi</option>
+          <option value="price-asc">Total Terendah</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="skeleton-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <!-- placeholder shimmer, tampil singkat saat data dimuat dari storage -->
+    </div>
+    <div class="hidden grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6" id="manga-list"></div>
+  </main>
+
+  <!-- ============ FLOATING ADD BUTTON ============ -->
+  <div class="fixed bottom-6 right-6 z-40">
+    <button data-action="open-add" class="btn-primary px-5 py-4 rounded-full flex items-center justify-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>
+      Add Comic
+    </button>
+  </div>
+
+  <!-- ============ MODAL: DETAIL ============ -->
+  <div id="detail-modal" class="modal-overlay hidden">
+    <div class="modal-panel">
+      <button data-action="close-detail" class="modal-close">&times;</button>
+
+      <div class="flex gap-4 mb-5">
+        <div id="modal-img-container" class="w-24 h-36 flex-shrink-0 rounded-xl overflow-hidden border-[2.5px] border-ink shadow-pop-sm">
+          <img id="modal-img" src="" alt="" class="w-full h-full object-cover">
+        </div>
+        <div class="flex-1 flex flex-col justify-center min-w-0">
+          <span id="modal-status" class="text-[9px] font-display font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-full border-2 border-ink w-fit mb-2"></span>
+          <h2 id="modal-title" class="text-lg font-display font-extrabold text-ink leading-tight mb-1 truncate"></h2>
+          <p id="modal-author" class="text-xs text-ink/60 font-semibold mb-0.5 truncate"></p>
+          <p class="text-[11px] text-ink/50 truncate">Penerbit: <span id="modal-publisher" class="text-coral-dark font-bold"></span></p>
+        </div>
+      </div>
+
+      <div class="border-t-2 border-ink/10 pt-4">
+        <label class="text-[9px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Sinopsis Utama</label>
+        <p id="modal-desc" class="text-xs text-ink/80 leading-relaxed mb-5 text-justify max-h-32 overflow-y-auto no-scrollbar"></p>
+
+        <div class="bg-white p-3 rounded-xl border-2 border-ink/10 mb-4">
+          <div class="flex justify-between items-center">
+            <span id="modal-genre" class="text-[9px] px-2.5 py-1 rounded-full font-display font-bold uppercase tracking-wide border-2 border-ink"></span>
+            <div class="text-right">
+              <span id="modal-vol-label" class="text-[9px] block text-ink/40 font-bold uppercase tracking-wider"></span>
+              <span id="modal-price" class="text-xs font-display font-black text-coral-dark"></span>
+              <span id="modal-price-detail" class="text-[9px] block text-ink/40 font-semibold"></span>
+            </div>
+          </div>
+          <div id="modal-vol-progress-wrap" class="hidden w-full h-1.5 bg-ink/10 rounded-full overflow-hidden mt-2.5">
+            <div id="modal-vol-progress-bar" class="h-full bg-coral rounded-full"></div>
+          </div>
+        </div>
+
+        <button data-action="open-reader" id="modal-btn-read" class="hidden btn-primary w-full p-3 mb-2.5 flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          Baca Sekarang
+        </button>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <button data-action="delete-from-detail" class="btn-danger-ghost p-3 flex items-center justify-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Hapus
+          </button>
+          <button data-action="open-edit" class="btn-ghost p-3 flex items-center justify-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Edit
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: FORM ============ -->
+  <div id="form-modal" class="modal-overlay hidden">
+    <div class="modal-panel max-h-[90vh] overflow-y-auto no-scrollbar">
+      <button data-action="close-form" class="modal-close">&times;</button>
+      <h2 id="form-modal-title" class="text-sm font-display font-bold tracking-wide text-ink mb-4 uppercase border-b-2 border-ink/10 pb-2">Tambah Komik Baru</h2>
+
+      <form id="manga-form" novalidate class="space-y-4">
+        <input type="hidden" id="form-id">
+
+        <div>
+          <label class="field-label">Judul Komik</label>
+          <input type="text" id="form-title" required class="input-field">
+          <p class="field-error-msg hidden" data-error-for="form-title">Judul wajib diisi.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="field-label">Pengarang</label>
+            <input type="text" id="form-author" required class="input-field">
+            <p class="field-error-msg hidden" data-error-for="form-author">Pengarang wajib diisi.</p>
+          </div>
+          <div>
+            <label class="field-label">Penerbit</label>
+            <input type="text" id="form-publisher" required class="input-field">
+            <p class="field-error-msg hidden" data-error-for="form-publisher">Penerbit wajib diisi.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="field-label">Harga Satuan</label>
+            <input type="number" min="0" step="500" inputmode="numeric" id="form-price" placeholder="45000" required class="input-field">
+            <p class="field-error-msg hidden" data-error-for="form-price">Harga tidak valid.</p>
+          </div>
+          <div>
+            <label class="field-label">Jumlah yang Dimiliki</label>
+            <input type="number" min="0" step="1" inputmode="numeric" id="form-qty" placeholder="0" value="1" required class="input-field">
+            <p class="field-error-msg hidden" data-error-for="form-qty">Jumlah tidak valid.</p>
+          </div>
+        </div>
+        <p class="text-[10px] text-ink/40 -mt-2">Isi harga yang benar-benar kamu bayar per buku/volume (boleh beda dari harga resmi kalau diskon). Belum punya sama sekali? Isi jumlah dengan <strong>0</strong> (cocok buat status Wishlist) — totalnya dihitung otomatis.</p>
+
+        <div class="bg-white border-2 border-ink/10 rounded-xl p-3 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <span class="field-label !mb-0.5">Jumlah dalam Satu Set/Seri</span>
+            <p id="total-vol-info" class="text-[11px] text-ink/50 leading-snug">Otomatis dicek dari judul &amp; pengarang...</p>
+          </div>
+          <input type="number" min="0" step="1" id="form-total-volumes" placeholder="—" class="input-field !w-20 !p-2 text-center shrink-0">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="field-label">Genre</label>
+            <select id="form-genre" class="input-field">
+              <option value="Action">Action</option>
+              <option value="Adventure">Adventure</option>
+              <option value="Biography">Biography</option>
+              <option value="Business">Business</option>
+              <option value="Children">Children</option>
+              <option value="Comedy">Comedy</option>
+              <option value="Drama">Drama</option>
+              <option value="Education">Education</option>
+              <option value="Fantasy">Fantasy</option>
+              <option value="Historical">Historical</option>
+              <option value="Horror">Horror</option>
+              <option value="Isekai">Isekai</option>
+              <option value="Mecha">Mecha</option>
+              <option value="Mystery">Mystery</option>
+              <option value="Non-Fiction">Non-Fiction</option>
+              <option value="Psychological">Psychological</option>
+              <option value="Romance">Romance</option>
+              <option value="Sci-Fi">Sci-Fi</option>
+              <option value="Science">Science</option>
+              <option value="Self-Help">Self-Help</option>
+              <option value="Slice of Life">Slice of Life</option>
+              <option value="Sports">Sports</option>
+              <option value="Supernatural">Supernatural</option>
+              <option value="Suspense">Suspense</option>
+              <option value="Thriller">Thriller</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Status</label>
+            <select id="form-status" class="input-field">
+              <option value="Wishlist">Wishlist</option>
+              <option value="On Going">On Going</option>
+              <option value="Sudah Lengkap">Sudah Lengkap</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- DRAG DROP & PASTE COMPONENT --->
+        <div class="bg-white border-2 border-ink/10 p-3 rounded-xl space-y-3">
+          <span class="text-[10px] font-bold text-ink/50 uppercase tracking-widest block">Sampul Buku</span>
+          <input type="url" id="form-image-url" placeholder="Opsi A: Tempel link gambar di sini..." class="input-field !bg-paper">
+          <div class="text-[9px] text-ink/40 font-bold text-center uppercase tracking-wider">— ATAU —</div>
+          <div id="drop-zone" tabindex="0" class="border-2 border-dashed border-ink/20 hover:border-coral rounded-xl p-4 text-center cursor-pointer transition bg-paper/60 min-h-[85px] flex flex-col items-center justify-center">
+            <p id="drop-zone-text" class="text-[10px] text-ink/60 leading-tight px-2">Drag gambar kemari, klik untuk pilih file, atau tekan <span class="text-coral-dark font-bold">Ctrl+V</span></p>
+            <input type="file" id="form-image-file" accept="image/*" class="hidden">
+          </div>
+          <div id="file-preview-container" class="hidden items-center gap-3 bg-paper px-3 py-2 rounded-xl border-2 border-ink/10">
+            <img id="file-preview-thumb" class="w-8 h-11 object-cover rounded border-2 border-ink/10" alt="">
+            <span class="text-[10px] text-mint-dark font-bold flex-1">✓ Gambar Termuat</span>
+            <button type="button" data-action="clear-image" class="text-[10px] text-coral-dark font-bold hover:underline">Hapus</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="field-label">Sinopsis Singkat Cerita</label>
+          <textarea id="form-desc" rows="3" required class="input-field"></textarea>
+          <p class="field-error-msg hidden" data-error-for="form-desc">Sinopsis wajib diisi.</p>
+        </div>
+
+        <div class="bg-white border-2 border-ink/10 rounded-xl p-3 space-y-2">
+          <span class="text-[10px] font-bold text-ink/50 uppercase tracking-widest block">Mode Baca (opsional)</span>
+          <p class="text-[10px] text-ink/40 leading-snug">Tambahkan file PDF <strong>berbasis teks</strong> (novel/buku tulisan) buat dibaca langsung di sini dengan tampilan ala e-reader. Bukan buat PDF hasil scan/komik bergambar.</p>
+          <label id="pdf-drop-zone" class="border-2 border-dashed border-ink/20 hover:border-coral rounded-xl p-3 text-center cursor-pointer transition bg-paper/60 flex items-center justify-center gap-2 min-h-[52px]">
+            <svg class="w-4 h-4 text-ink/40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+            <span id="pdf-drop-zone-text" class="text-[11px] text-ink/60 font-semibold">Pilih file PDF...</span>
+            <input type="file" id="form-pdf-file" accept="application/pdf" class="hidden">
+          </label>
+          <div id="pdf-clear-row" class="hidden justify-end">
+            <button type="button" data-action="clear-pdf" class="text-[10px] text-coral-dark font-bold hover:underline">Hapus file PDF</button>
+          </div>
+        </div>
+
+        <button type="submit" id="form-submit-btn" class="btn-primary w-full p-3.5 mt-2">Simpan Koleksi</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CONFIRM (generic) ============ -->
+  <div id="confirm-modal" class="modal-overlay hidden" style="z-index:60;">
+    <div class="modal-panel !max-w-sm text-center">
+      <div class="w-12 h-12 rounded-full bg-coral-light border-2 border-ink flex items-center justify-center mx-auto mb-4 -rotate-3">
+        <svg class="w-5 h-5 text-coral-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+      </div>
+      <h3 id="confirm-title" class="text-sm font-display font-extrabold text-ink mb-1.5">Hapus komik ini?</h3>
+      <p id="confirm-message" class="text-xs text-ink/60 leading-relaxed mb-6">Tindakan ini tidak bisa dibatalkan.</p>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button data-action="confirm-cancel" class="btn-ghost p-3">Batal</button>
+        <button data-action="confirm-ok" class="btn-primary p-3">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOASTS ============ -->
+  <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 pointer-events-none"></div>
+
+  <!-- ============ READER (mode baca ala e-reader untuk PDF teks) ============ -->
+  <div id="reader-modal" class="hidden fixed inset-0 z-[90] flex-col bg-paper">
+    <div class="flex items-center justify-between gap-2 px-4 py-3 border-b-2 border-ink/10 bg-white shrink-0">
+      <button data-action="close-reader" class="btn-icon shrink-0" aria-label="Tutup">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <span id="reader-title" class="text-xs font-display font-bold text-ink truncate flex-1 text-center"></span>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button data-action="reader-font-dec" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perkecil font">A-</button>
+        <button data-action="reader-font-inc" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perbesar font">A+</button>
+        <button data-action="reader-font-family-cycle" id="reader-font-family-btn" class="btn-icon !w-8 !h-8" aria-label="Ganti jenis huruf" title="Ganti jenis huruf">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
+        </button>
+        <button data-action="reader-theme-cycle" id="reader-theme-btn" class="btn-icon !w-8 !h-8" aria-label="Ganti tema">☀️</button>
+      </div>
+    </div>
+
+    <div id="reader-content" class="flex-1 overflow-y-auto"><div id="reader-inner" class="mx-auto max-w-2xl px-6 py-10"></div></div>
+
+    <div class="h-1 bg-ink/10 shrink-0"><div id="reader-progress-bar" class="h-full bg-coral" style="width:0%"></div></div>
+  </div>
+
+  <script src="vendor/pdf.min.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch((err) => {
+          console.warn('Gagal mendaftarkan service worker:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
