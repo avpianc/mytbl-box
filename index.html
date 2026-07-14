@@ -128,13 +128,15 @@
           <span id="modal-status" class="text-[9px] font-display font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-full border-2 border-ink w-fit mb-2"></span>
           <h2 id="modal-title" class="text-lg font-display font-extrabold text-ink leading-tight mb-1 truncate"></h2>
           <p id="modal-author" class="text-xs text-ink/60 font-semibold mb-0.5 truncate"></p>
-          <p class="text-[11px] text-ink/50 truncate">Penerbit: <span id="modal-publisher" class="text-coral-dark font-bold"></span></p>
+          <p id="modal-publisher-row" class="text-[11px] text-ink/50 truncate">Penerbit: <span id="modal-publisher" class="text-coral-dark font-bold"></span></p>
         </div>
       </div>
 
       <div class="border-t-2 border-ink/10 pt-4">
-        <label class="text-[9px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Sinopsis Utama</label>
-        <p id="modal-desc" class="text-xs text-ink/80 leading-relaxed mb-5 text-justify max-h-32 overflow-y-auto no-scrollbar"></p>
+        <div id="modal-desc-section">
+          <label class="text-[9px] font-bold uppercase tracking-widest text-ink/40 block mb-1">Sinopsis Utama</label>
+          <p id="modal-desc" class="text-xs text-ink/80 leading-relaxed mb-5 text-justify max-h-32 overflow-y-auto no-scrollbar"></p>
+        </div>
 
         <div class="bg-white p-3 rounded-xl border-2 border-ink/10 mb-4">
           <div class="flex justify-between items-center">
@@ -186,21 +188,19 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="field-label">Pengarang</label>
-            <input type="text" id="form-author" required class="input-field">
-            <p class="field-error-msg hidden" data-error-for="form-author">Pengarang wajib diisi.</p>
+            <label class="field-label">Pengarang <span class="text-ink/30 font-normal normal-case">(opsional)</span></label>
+            <input type="text" id="form-author" class="input-field">
           </div>
           <div>
-            <label class="field-label">Penerbit</label>
-            <input type="text" id="form-publisher" required class="input-field">
-            <p class="field-error-msg hidden" data-error-for="form-publisher">Penerbit wajib diisi.</p>
+            <label class="field-label">Penerbit <span class="text-ink/30 font-normal normal-case">(opsional)</span></label>
+            <input type="text" id="form-publisher" class="input-field">
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="field-label">Harga Satuan</label>
-            <input type="number" min="0" step="500" inputmode="numeric" id="form-price" placeholder="45000" required class="input-field">
+            <label class="field-label">Harga Satuan <span class="text-ink/30 font-normal normal-case">(opsional)</span></label>
+            <input type="number" min="0" step="500" inputmode="numeric" id="form-price" placeholder="0" class="input-field">
             <p class="field-error-msg hidden" data-error-for="form-price">Harga tidak valid.</p>
           </div>
           <div>
@@ -222,7 +222,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="field-label">Genre</label>
-            <select id="form-genre" class="input-field">
+            <select id="form-genre" data-allow-custom="true" class="input-field">
               <option value="Action">Action</option>
               <option value="Adventure">Adventure</option>
               <option value="Biography">Biography</option>
@@ -232,12 +232,17 @@
               <option value="Drama">Drama</option>
               <option value="Education">Education</option>
               <option value="Fantasy">Fantasy</option>
+              <option value="Fiksi">Fiksi</option>
               <option value="Historical">Historical</option>
               <option value="Horror">Horror</option>
+              <option value="Hukum">Hukum</option>
               <option value="Isekai">Isekai</option>
               <option value="Mecha">Mecha</option>
               <option value="Mystery">Mystery</option>
               <option value="Non-Fiction">Non-Fiction</option>
+              <option value="Non-Fiksi">Non-Fiksi</option>
+              <option value="Novel">Novel</option>
+              <option value="Politik">Politik</option>
               <option value="Psychological">Psychological</option>
               <option value="Romance">Romance</option>
               <option value="Sci-Fi">Sci-Fi</option>
@@ -247,6 +252,7 @@
               <option value="Sports">Sports</option>
               <option value="Supernatural">Supernatural</option>
               <option value="Suspense">Suspense</option>
+              <option value="Teknologi">Teknologi</option>
               <option value="Thriller">Thriller</option>
             </select>
           </div>
@@ -277,21 +283,20 @@
         </div>
 
         <div>
-          <label class="field-label">Sinopsis Singkat Cerita</label>
-          <textarea id="form-desc" rows="3" required class="input-field"></textarea>
-          <p class="field-error-msg hidden" data-error-for="form-desc">Sinopsis wajib diisi.</p>
+          <label class="field-label">Sinopsis Singkat Cerita <span class="text-ink/30 font-normal normal-case">(opsional)</span></label>
+          <textarea id="form-desc" rows="3" class="input-field"></textarea>
         </div>
 
         <div class="bg-white border-2 border-ink/10 rounded-xl p-3 space-y-2">
           <span class="text-[10px] font-bold text-ink/50 uppercase tracking-widest block">Mode Baca (opsional)</span>
-          <p class="text-[10px] text-ink/40 leading-snug">Tambahkan file PDF <strong>berbasis teks</strong> (novel/buku tulisan) buat dibaca langsung di sini dengan tampilan ala e-reader. Bukan buat PDF hasil scan/komik bergambar.</p>
+          <p class="text-[10px] text-ink/40 leading-snug">Tambahkan file <strong>PDF berbasis teks atau EPUB</strong> (novel/buku tulisan) buat dibaca langsung di sini dengan tampilan ala e-reader. EPUB biasanya hasilnya lebih rapi karena memang format buku digital asli. Bukan buat PDF hasil scan/komik bergambar.</p>
           <label id="pdf-drop-zone" class="border-2 border-dashed border-ink/20 hover:border-coral rounded-xl p-3 text-center cursor-pointer transition bg-paper/60 flex items-center justify-center gap-2 min-h-[52px]">
             <svg class="w-4 h-4 text-ink/40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-            <span id="pdf-drop-zone-text" class="text-[11px] text-ink/60 font-semibold">Pilih file PDF...</span>
-            <input type="file" id="form-pdf-file" accept="application/pdf" class="hidden">
+            <span id="pdf-drop-zone-text" class="text-[11px] text-ink/60 font-semibold">Pilih file PDF atau EPUB...</span>
+            <input type="file" id="form-pdf-file" accept="application/pdf,.epub,application/epub+zip" class="hidden">
           </label>
           <div id="pdf-clear-row" class="hidden justify-end">
-            <button type="button" data-action="clear-pdf" class="text-[10px] text-coral-dark font-bold hover:underline">Hapus file PDF</button>
+            <button type="button" data-action="clear-pdf" class="text-[10px] text-coral-dark font-bold hover:underline">Hapus file</button>
           </div>
         </div>
 
@@ -326,8 +331,10 @@
       </button>
       <span id="reader-title" class="text-xs font-display font-bold text-ink truncate flex-1 text-center"></span>
       <div class="flex items-center gap-1.5 shrink-0">
-        <button data-action="reader-font-dec" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perkecil font">A-</button>
-        <button data-action="reader-font-inc" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perbesar font">A+</button>
+        <button data-action="reader-font-dec" id="reader-font-dec" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perkecil font">A-</button>
+        <button data-action="reader-font-inc" id="reader-font-inc" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perbesar font">A+</button>
+        <button data-action="reader-zoom-dec" id="reader-zoom-dec" class="hidden btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perkecil gambar">−</button>
+        <button data-action="reader-zoom-inc" id="reader-zoom-inc" class="hidden btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perbesar gambar">+</button>
         <button data-action="reader-font-family-cycle" id="reader-font-family-btn" class="btn-icon !w-8 !h-8" aria-label="Ganti jenis huruf" title="Ganti jenis huruf">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
         </button>
@@ -335,12 +342,13 @@
       </div>
     </div>
 
-    <div id="reader-content" class="flex-1 overflow-y-auto"><div id="reader-inner" class="mx-auto max-w-2xl px-6 py-10"></div></div>
+    <div id="reader-content" class="flex-1 overflow-y-auto"><div id="reader-inner" class="mx-auto max-w-2xl px-6 py-10 transition-all"></div></div>
 
     <div class="h-1 bg-ink/10 shrink-0"><div id="reader-progress-bar" class="h-full bg-coral" style="width:0%"></div></div>
   </div>
 
   <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
   <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="app.js"></script>
   <script>

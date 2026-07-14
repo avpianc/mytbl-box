@@ -120,9 +120,10 @@ let state = {
   sort: 'added-desc',
 };
 let uploadedImageBase64 = '';
-let pendingPdfFile = null;   // File PDF yang lagi dipilih di form, sebelum disimpan
-let pendingPdfCleared = false; // flag: user eksplisit hapus PDF yang sebelumnya sudah tersimpan
-let readerState = { mangaId: null, paragraphs: [], fontSize: 19, theme: 'light', fontFamily: 'sans' };
+let pendingPdfFile = null;   // File PDF/EPUB yang lagi dipilih di form, sebelum disimpan
+let pendingPdfFileType = 'pdf'; // 'pdf' | 'epub'
+let pendingPdfCleared = false; // flag: user eksplisit hapus file yang sebelumnya sudah tersimpan
+let readerState = { mangaId: null, paragraphs: [], fontSize: 19, theme: 'light', fontFamily: 'sans', imageZoom: 100 };
 let confirmCallback = null;
 let selectedIds = new Set();
 let genreTouchedByUser = false;
@@ -280,7 +281,7 @@ function renderManga() {
     const statusShort = escapeHtml(manga.status.replace('Sudah ', ''));
     const qty = getQty(manga);
     const total = (Number(manga.price) || 0) * qty;
-    const priceLabel = qty > 0 ? formatRupiah(total) : 'Belum Dimiliki';
+    const priceLabel = qty === 0 ? 'Belum Dimiliki' : (Number(manga.price) > 0 ? formatRupiah(total) : 'Harga blm diisi');
     const totalVol = Number(manga.totalVolumes) || 0;
     const volLabel = totalVol > 0 ? `${qty} / ${totalVol} Vol` : `${qty} Vol`;
     const volPct = totalVol > 0 ? Math.min(100, Math.round((qty / totalVol) * 100)) : 0;
@@ -303,15 +304,15 @@ function renderManga() {
             </div>
           </div>
           <h3 class="text-sm font-display font-bold text-ink tracking-tight leading-snug line-clamp-1 mb-0.5 group-hover:text-coral-dark transition">${manga.hasPdf ? '<span title="Bisa dibaca">📖</span> ' : ''}${escapeHtml(manga.title)}</h3>
-          <p class="text-[11px] text-ink/50 truncate mb-2">By: ${escapeHtml(manga.author)}</p>
+          <p class="text-[11px] text-ink/50 truncate mb-2">${manga.author ? `By: ${escapeHtml(manga.author)}` : ''}</p>
         </div>
         <div class="pt-2.5 border-t-2 border-ink/10 flex flex-col gap-1.5">
           <div class="flex justify-between items-center gap-2">
             <span class="text-[9px] font-display font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border-2 truncate max-w-[55%]" style="${genreStyleAttr(manga.genre)}">${escapeHtml(manga.genre)}</span>
-            <span class="text-xs font-display font-black ${qty > 0 ? 'text-coral-dark' : 'text-ink/35'} tracking-tight">${priceLabel}</span>
+            <span class="text-xs font-display font-black ${(qty > 0 && Number(manga.price) > 0) ? 'text-coral-dark' : 'text-ink/35'} tracking-tight">${priceLabel}</span>
           </div>
           <div class="flex justify-between items-center gap-2">
-            <span class="text-[9px] text-ink/40 font-bold truncate">${escapeHtml(manga.publisher)}</span>
+            <span class="text-[9px] text-ink/40 font-bold truncate">${manga.publisher ? escapeHtml(manga.publisher) : '—'}</span>
             <span class="text-[9px] text-ink/40 font-semibold shrink-0">${volLabel}</span>
           </div>
           ${totalVol > 0 ? `<div class="w-full h-1.5 bg-ink/10 rounded-full overflow-hidden"><div class="h-full bg-coral rounded-full" style="width:${volPct}%"></div></div>` : ''}
@@ -370,19 +371,24 @@ function openDetailModal(id) {
   };
 
   $('modal-title').textContent = manga.title;
-  $('modal-author').textContent = 'Oleh: ' + manga.author;
-  $('modal-publisher').textContent = manga.publisher;
-  $('modal-desc').textContent = manga.desc;
+  $('modal-author').textContent = manga.author ? 'Oleh: ' + manga.author : '';
+  $('modal-publisher').textContent = manga.publisher || '';
+  $('modal-publisher-row').classList.toggle('hidden', !manga.publisher);
+  $('modal-desc').textContent = manga.desc || '';
+  $('modal-desc-section').classList.toggle('hidden', !manga.desc);
   $('modal-genre').textContent = manga.genre;
   $('modal-genre').setAttribute('style', genreStyleAttr(manga.genre));
   const mQty = getQty(manga);
   const totalVol = Number(manga.totalVolumes) || 0;
   $('modal-vol-label').textContent = totalVol > 0 ? `Total (${mQty} / ${totalVol} Vol)` : `Total (${mQty} Vol)`;
-  if (mQty > 0) {
+  if (mQty > 0 && Number(manga.price) > 0) {
     $('modal-price').textContent = formatRupiah((Number(manga.price) || 0) * mQty);
     $('modal-price').className = 'text-xs font-display font-black text-coral-dark';
-  } else {
+  } else if (mQty === 0) {
     $('modal-price').textContent = 'Belum Dimiliki';
+    $('modal-price').className = 'text-xs font-display font-black text-ink/40';
+  } else {
+    $('modal-price').textContent = 'Harga blm diisi';
     $('modal-price').className = 'text-xs font-display font-black text-ink/40';
   }
   $('modal-price-detail').textContent = mQty !== 1 && Number(manga.price) > 0 ? `${formatRupiah(manga.price)} / vol` : '';
@@ -664,10 +670,7 @@ async function handleFormSubmit(event) {
 
   let hasError = false;
   if (!title) { showFieldError('form-title'); hasError = true; }
-  if (!author) { showFieldError('form-author'); hasError = true; }
-  if (!publisher) { showFieldError('form-publisher'); hasError = true; }
-  if (!desc) { showFieldError('form-desc'); hasError = true; }
-  if (priceRaw === '' || isNaN(priceRaw) || Number(priceRaw) < 0) { showFieldError('form-price'); hasError = true; }
+  if (priceRaw !== '' && (isNaN(priceRaw) || Number(priceRaw) < 0)) { showFieldError('form-price'); hasError = true; }
   if (qtyRaw === '' || isNaN(qtyRaw) || Number(qtyRaw) < 0 || !Number.isInteger(Number(qtyRaw))) { showFieldError('form-qty'); hasError = true; }
 
   if (hasError) {
@@ -712,18 +715,18 @@ async function handleFormSubmit(event) {
     showToast('Komik baru ditambahkan ke koleksi.', 'success');
   }
 
-  // Simpan/hapus file PDF di IndexedDB sesuai aksi user di form
+  // Simpan/hapus file PDF/EPUB di IndexedDB sesuai aksi user di form
   const targetIndex = mangaData.findIndex((m) => m.id === finalId);
   try {
     if (pendingPdfFile) {
-      await savePdfRecord(finalId, { blob: pendingPdfFile, fileName: pendingPdfFile.name, parsedParagraphs: null });
+      await savePdfRecord(finalId, { blob: pendingPdfFile, fileName: pendingPdfFile.name, fileType: pendingPdfFileType, parsedParagraphs: null });
       if (targetIndex !== -1) mangaData[targetIndex].hasPdf = true;
     } else if (pendingPdfCleared) {
       await deletePdfRecord(finalId);
       if (targetIndex !== -1) mangaData[targetIndex].hasPdf = false;
     }
   } catch (e) {
-    showToast('Gagal menyimpan file PDF (ukuran mungkin terlalu besar).', 'error');
+    showToast('Gagal menyimpan file (ukuran mungkin terlalu besar).', 'error');
   }
 
   await saveData();
@@ -854,9 +857,32 @@ async function processFile(file) {
    Elemen <select> ASLI tetap ada di DOM (disembunyikan) supaya semua kode lain
    yang baca/tulis `.value` tetap jalan seperti biasa — cuma tampilannya diganti.
    ========================================================================= */
+async function loadCustomGenresIntoSelect(selectEl) {
+  const stored = await Storage.get('mytbl_custom_genres');
+  const customGenres = Array.isArray(stored) ? stored : [];
+  const existingValues = new Set(Array.from(selectEl.options).map((o) => o.value));
+  customGenres.forEach((g) => {
+    if (!existingValues.has(g)) {
+      const opt = document.createElement('option');
+      opt.value = g;
+      opt.textContent = g;
+      selectEl.appendChild(opt);
+    }
+  });
+}
+async function persistCustomGenre(name) {
+  const stored = await Storage.get('mytbl_custom_genres');
+  const customGenres = Array.isArray(stored) ? stored : [];
+  if (!customGenres.includes(name)) {
+    customGenres.push(name);
+    await Storage.set('mytbl_custom_genres', customGenres);
+  }
+}
+
 function enhanceSelect(selectEl) {
   if (!selectEl || selectEl.dataset.enhanced) return;
   selectEl.dataset.enhanced = 'true';
+  const allowCustom = selectEl.dataset.allowCustom === 'true';
 
   const wrapper = document.createElement('div');
   wrapper.className = 'relative';
@@ -873,15 +899,64 @@ function enhanceSelect(selectEl) {
   const list = document.createElement('div');
   list.className = 'custom-select-list hidden';
 
+  function renderAddGenreTrigger() {
+    const zone = list.querySelector('#add-genre-zone');
+    if (!zone) return;
+    zone.innerHTML = `<button type="button" id="add-genre-trigger" class="custom-select-option !text-coral-dark font-bold">+ Tambah genre baru...</button>`;
+    zone.querySelector('#add-genre-trigger').addEventListener('click', (e) => {
+      e.stopPropagation();
+      renderAddGenreInput();
+    });
+  }
+
+  function renderAddGenreInput() {
+    const zone = list.querySelector('#add-genre-zone');
+    if (!zone) return;
+    zone.innerHTML = `
+      <div class="flex gap-1 p-1">
+        <input type="text" id="new-genre-input" placeholder="Nama genre baru..." maxlength="30" class="input-field !text-[11px] !p-2 flex-1" />
+        <button type="button" id="confirm-add-genre" class="btn-primary !text-[10px] !px-2.5 !py-0 shrink-0">+</button>
+      </div>`;
+    const input = zone.querySelector('#new-genre-input');
+    input.focus();
+    input.addEventListener('click', (e) => e.stopPropagation());
+
+    function confirmAddGenre() {
+      const name = input.value.trim();
+      if (!name) return;
+      const exists = Array.from(selectEl.options).some((o) => o.value.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        selectEl.appendChild(opt);
+        persistCustomGenre(name);
+      }
+      selectEl.value = exists ? Array.from(selectEl.options).find((o) => o.value.toLowerCase() === name.toLowerCase()).value : name;
+      selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      sync();
+      closeList();
+    }
+    zone.querySelector('#confirm-add-genre').addEventListener('click', (e) => { e.stopPropagation(); confirmAddGenre(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmAddGenre(); }
+      if (e.key === 'Escape') { e.stopPropagation(); renderAddGenreTrigger(); }
+    });
+  }
+
   function sync() {
     const opts = Array.from(selectEl.options);
-    list.innerHTML = opts.map((o) =>
+    let html = opts.map((o) =>
       `<button type="button" data-value="${escapeHtml(o.value)}" class="${o.value === selectEl.value ? 'custom-select-option custom-select-option-active' : 'custom-select-option'}">${escapeHtml(o.textContent)}</button>`
     ).join('');
+    if (allowCustom) html += '<div class="border-t-2 border-ink/10 mt-1 pt-1" id="add-genre-zone"></div>';
+    list.innerHTML = html;
     btn.querySelector('span').textContent = opts[selectEl.selectedIndex]?.textContent || '';
+    if (allowCustom) renderAddGenreTrigger();
   }
   sync();
   selectEl._syncCustomSelect = sync;
+  if (allowCustom) loadCustomGenresIntoSelect(selectEl).then(() => sync());
 
   function closeList() {
     list.classList.add('hidden');
@@ -1098,6 +1173,8 @@ function initEventListeners() {
       case 'reader-font-dec': changeReaderFontSize(-1); break;
       case 'reader-theme-cycle': cycleReaderTheme(); break;
       case 'reader-font-family-cycle': cycleReaderFontFamily(); break;
+      case 'reader-zoom-dec': changeImageZoom(-15); break;
+      case 'reader-zoom-inc': changeImageZoom(15); break;
       case 'open-edit': {
         const idToEdit = activeDetailId;
         closeDetailModal();
@@ -1293,6 +1370,71 @@ async function deletePdfRecord(mangaId) {
 }
 
 /* =========================================================================
+   EKSTRAKSI TEKS EPUB (via JSZip) — EPUB itu file ZIP isinya HTML biasa,
+   jadi ekstraksinya JAUH lebih akurat daripada PDF (gak perlu nebak-nebak
+   batas paragraf, karena strukturnya emang udah ada di HTML aslinya).
+   ========================================================================= */
+async function openEpubZip(arrayBuffer) {
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const containerXml = await zip.file('META-INF/container.xml').async('string');
+  const containerDoc = new DOMParser().parseFromString(containerXml, 'application/xml');
+  const opfPath = containerDoc.getElementsByTagName('rootfile')[0].getAttribute('full-path');
+  const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+  const opfXml = await zip.file(opfPath).async('string');
+  const opfDoc = new DOMParser().parseFromString(opfXml, 'application/xml');
+  return { zip, opfDoc, opfDir };
+}
+
+async function extractEpubMetadata(arrayBuffer) {
+  try {
+    const { opfDoc } = await openEpubZip(arrayBuffer);
+    const title = opfDoc.getElementsByTagName('dc:title')[0]?.textContent?.trim() || '';
+    const author = opfDoc.getElementsByTagName('dc:creator')[0]?.textContent?.trim() || '';
+    return { title, author };
+  } catch (e) {
+    return { title: '', author: '' };
+  }
+}
+
+async function extractEpubParagraphs(arrayBuffer, onProgress) {
+  const { zip, opfDoc, opfDir } = await openEpubZip(arrayBuffer);
+
+  const manifestItems = {};
+  Array.from(opfDoc.getElementsByTagName('item')).forEach((item) => {
+    manifestItems[item.getAttribute('id')] = item.getAttribute('href');
+  });
+  const spineIds = Array.from(opfDoc.getElementsByTagName('itemref')).map((el) => el.getAttribute('idref'));
+
+  const paragraphs = [];
+  for (let i = 0; i < spineIds.length; i++) {
+    if (onProgress) onProgress(i + 1, spineIds.length);
+    const href = manifestItems[spineIds[i]];
+    if (!href) continue;
+    let fullPath = opfDir + decodeURIComponent(href);
+    let file = zip.file(fullPath);
+    if (!file) file = zip.file(decodeURIComponent(href)); // coba tanpa prefix folder kalau gak ketemu
+    if (!file) continue;
+
+    const html = await file.async('string');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script, style').forEach((el) => el.remove());
+
+    const blocks = doc.querySelectorAll('p, h1, h2, h3, h4, li, blockquote');
+    if (blocks.length > 0) {
+      blocks.forEach((el) => {
+        const text = el.textContent.replace(/\s+/g, ' ').trim();
+        if (text) paragraphs.push(text);
+      });
+    } else {
+      const text = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+      if (text) paragraphs.push(text);
+    }
+  }
+
+  return paragraphs;
+}
+
+/* =========================================================================
    EKSTRAKSI TEKS PDF (via PDF.js) — hasilnya array paragraf siap-reflow
    ========================================================================= */
 if (typeof pdfjsLib !== 'undefined') {
@@ -1383,52 +1525,107 @@ async function renderPdfPageToCanvas(pdf, pageNum, scale) {
   return canvas;
 }
 
-async function extractPdfParagraphsViaOCR(arrayBuffer, onProgress) {
+// Render SEMUA halaman PDF sebagai gambar, ditampilkan berurutan ke bawah
+// (kayak baca komik/hasil scan biasa). Jauh lebih cepat daripada OCR karena
+// cuma "menggambar ulang" halaman apa adanya, tanpa coba baca/mengenali
+// karakter apapun. Ini mode DEFAULT untuk PDF yang gak punya lapisan teks.
+async function renderImagePages(pdf, container, onProgress) {
+  container.innerHTML = '';
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    if (onProgress) onProgress(pageNum, pdf.numPages);
+    const canvas = await renderPdfPageToCanvas(pdf, pageNum, 1.8);
+    canvas.className = 'w-full h-auto rounded-lg shadow-pop-sm mb-4 border-2 border-ink/10';
+    container.appendChild(canvas);
+  }
+}
+
+let ocrStopRequested = false;
+
+// Beda dari sebelumnya: fungsi ini sekarang memanggil `onPageDone` SETIAP
+// SATU HALAMAN selesai diproses (bukan nunggu semua halaman kelar baru
+// dikasih taunya) — supaya pemanggilnya bisa langsung nampilin teks
+// halaman itu ke layar, dan buku bisa mulai dibaca dari halaman 1 sambil
+// halaman-halaman berikutnya masih diproses di belakang layar.
+// `startPage` dipakai buat fitur "Lanjutkan OCR" — nerusin dari halaman
+// terakhir yang belum sempat diproses, bukan mengulang dari awal.
+async function extractPdfParagraphsViaOCR(arrayBuffer, callbacks, startPage) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const paragraphs = [];
+  let lastPageDone = startPage - 1;
+  let stoppedEarly = false;
 
   const worker = await getOcrWorker((m) => {
     if (m.status === 'loading language traineddata' || m.status === 'initializing api') {
-      if (onProgress) onProgress(null, null, 'Menyiapkan mesin OCR (unduh model bahasa sekali di awal)...');
+      callbacks.onStatus?.('Menyiapkan mesin OCR (unduh model bahasa sekali di awal)...');
     }
   });
 
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    if (onProgress) onProgress(pageNum, pdf.numPages, null);
+  for (let pageNum = startPage; pageNum <= pdf.numPages; pageNum++) {
+    if (callbacks.shouldStop?.()) { stoppedEarly = true; break; }
+    callbacks.onStatus?.(`Memproses halaman ${pageNum}/${pdf.numPages}...`);
     const canvas = await renderPdfPageToCanvas(pdf, pageNum, 2);
     const { data } = await worker.recognize(canvas);
     const pageText = (data.text || '').trim();
-    if (pageText) paragraphs.push(pageText);
+    if (pageText) {
+      paragraphs.push(pageText);
+      callbacks.onPageDone?.(pageText, pageNum, pdf.numPages);
+    }
+    lastPageDone = pageNum;
   }
 
-  return paragraphs;
+  return { paragraphs, lastPageDone, totalPages: pdf.numPages, stoppedEarly: stoppedEarly || lastPageDone < pdf.numPages };
 }
-
 
 /* =========================================================================
    UPLOAD PDF DI FORM (drag/drop + klik, disimpan ke IndexedDB pas form
    disubmit — sama pola-nya kayak upload gambar sampul)
    ========================================================================= */
-function setPdfSelected(file) {
+function detectBookFileType(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.epub') || file.type === 'application/epub+zip') return 'epub';
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') return 'pdf';
+  return null;
+}
+
+async function setPdfSelected(file) {
+  const type = detectBookFileType(file);
+  if (!type) {
+    showToast('File harus berformat PDF atau EPUB.', 'error');
+    return;
+  }
   pendingPdfFile = file;
+  pendingPdfFileType = type;
   pendingPdfCleared = false;
   $('pdf-drop-zone-text').textContent = `✓ ${file.name}`;
   $('pdf-clear-row').classList.remove('hidden');
   $('pdf-clear-row').classList.add('flex');
+
+  // EPUB nyimpen metadata judul/pengarang di dalam filenya sendiri — kalau
+  // field itu masih kosong di form, otomatis isikan dari situ.
+  if (type === 'epub') {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const meta = await extractEpubMetadata(arrayBuffer);
+      if (meta.title && !$('form-title').value.trim()) $('form-title').value = meta.title;
+      if (meta.author && !$('form-author').value.trim()) $('form-author').value = meta.author;
+    } catch (e) { /* gagal ambil metadata, gak masalah — bukan hal wajib */ }
+  }
 }
 function clearPdfSelection() {
   pendingPdfFile = null;
+  pendingPdfFileType = 'pdf';
   pendingPdfCleared = true;
   $('form-pdf-file').value = '';
-  $('pdf-drop-zone-text').textContent = 'Pilih file PDF...';
+  $('pdf-drop-zone-text').textContent = 'Pilih file PDF atau EPUB...';
   $('pdf-clear-row').classList.add('hidden');
   $('pdf-clear-row').classList.remove('flex');
 }
 function resetPdfFormState() {
   pendingPdfFile = null;
+  pendingPdfFileType = 'pdf';
   pendingPdfCleared = false;
   $('form-pdf-file').value = '';
-  $('pdf-drop-zone-text').textContent = 'Pilih file PDF...';
+  $('pdf-drop-zone-text').textContent = 'Pilih file PDF atau EPUB...';
   $('pdf-clear-row').classList.add('hidden');
   $('pdf-clear-row').classList.remove('flex');
 }
@@ -1436,7 +1633,7 @@ function initPdfInput() {
   const zone = $('pdf-drop-zone');
   const input = $('form-pdf-file');
   input.addEventListener('change', function () {
-    if (this.files.length > 0 && this.files[0].type === 'application/pdf') setPdfSelected(this.files[0]);
+    if (this.files.length > 0) setPdfSelected(this.files[0]);
   });
   ['dragenter', 'dragover'].forEach((name) => {
     zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.add('border-coral'); });
@@ -1446,7 +1643,7 @@ function initPdfInput() {
   });
   zone.addEventListener('drop', (e) => {
     const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type === 'application/pdf') setPdfSelected(files[0]);
+    if (files.length > 0) setPdfSelected(files[0]);
   });
 }
 
@@ -1455,6 +1652,129 @@ function initPdfInput() {
    ========================================================================= */
 function getReaderProgressKey(id) { return `mytbl_reader_progress_${id}`; }
 
+// Font size & jenis huruf cuma relevan buat mode teks — disembunyikan pas
+// lagi nampilin gambar halaman biar toolbar gak nawarin kontrol yang gak
+// ada gunanya. Lebar kontainer juga disesuaikan: sempit & nyaman baca buat
+// teks, lebih lebar buat gambar halaman biar gak kekecilan.
+function setReaderControlsVisible(showTextControls) {
+  $('reader-font-dec').classList.toggle('hidden', !showTextControls);
+  $('reader-font-inc').classList.toggle('hidden', !showTextControls);
+  $('reader-font-family-btn').classList.toggle('hidden', !showTextControls);
+  $('reader-zoom-dec').classList.toggle('hidden', showTextControls);
+  $('reader-zoom-inc').classList.toggle('hidden', showTextControls);
+  $('reader-inner').classList.toggle('max-w-2xl', showTextControls);
+  $('reader-inner').classList.toggle('max-w-3xl', !showTextControls);
+  if (!showTextControls) {
+    readerState.imageZoom = 100; // reset tiap kali masuk buku/mode gambar baru
+  }
+}
+
+function applyImageZoom() {
+  document.querySelectorAll('#reader-inner canvas').forEach((c) => {
+    c.style.width = `${readerState.imageZoom}%`;
+  });
+}
+function changeImageZoom(delta) {
+  readerState.imageZoom = Math.min(250, Math.max(50, readerState.imageZoom + delta));
+  applyImageZoom();
+}
+
+function renderReaderTextMode(paragraphs, viaOCR, isPartial, mangaId) {
+  let note = '';
+  if (viaOCR && isPartial) {
+    note = `<div class="mb-5 pb-3 border-b border-current border-opacity-10 flex items-center justify-between gap-3 flex-wrap">
+      <p class="text-[11px] opacity-50 italic flex-1 min-w-[180px]">📷 Hasil OCR sebagian (sempat dihentikan di tengah jalan) — mungkin ada typo.</p>
+      <button type="button" id="reader-continue-ocr-btn" class="btn-ghost !text-[10px] !px-3 !py-2 shrink-0">Lanjutkan OCR</button>
+    </div>`;
+  } else if (viaOCR) {
+    note = '<p class="text-[11px] opacity-50 italic mb-5 pb-3 border-b border-current border-opacity-10">📷 Teks di bawah ini hasil OCR (bukan teks asli PDF) — mungkin ada typo atau salah baca karakter di beberapa bagian.</p>';
+  }
+  $('reader-inner').innerHTML = note + paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
+  applyReaderFontSize();
+
+  const continueBtn = document.getElementById('reader-continue-ocr-btn');
+  if (continueBtn) continueBtn.addEventListener('click', () => runManualOCR(mangaId));
+}
+
+function renderManualOcrOffer(mangaId) {
+  const banner = document.createElement('div');
+  banner.className = 'mb-4 p-3 bg-white border-2 border-ink/10 rounded-xl flex items-center justify-between gap-3 flex-wrap';
+  banner.innerHTML = `
+    <span class="text-[11px] text-ink/60 flex-1 min-w-[180px]">PDF ini gak punya teks yang bisa dibaca langsung, jadi ditampilkan sebagai gambar halaman.</span>
+    <button type="button" data-action="run-manual-ocr" class="btn-ghost !text-[10px] !px-3 !py-2 shrink-0">Coba baca sebagai teks (OCR, lambat)</button>`;
+  banner.querySelector('[data-action="run-manual-ocr"]').addEventListener('click', () => runManualOCR(mangaId));
+  $('reader-inner').prepend(banner);
+}
+
+// OCR sekarang PROGRESIF: teks tiap halaman langsung muncul begitu selesai
+// (gak nunggu semua halaman kelar dulu baru ditampilkan), dan ada tombol
+// "Berhenti di sini" supaya kamu bisa mulai baca duluan tanpa nunggu buku
+// setebal apapun selesai diproses semua. Progress yang udah jalan disimpan,
+// jadi bisa dilanjutkan lagi kapan-kapan lewat tombol "Lanjutkan OCR".
+async function runManualOCR(mangaId) {
+  const record = await getPdfRecord(mangaId);
+  if (!record || !record.blob) return;
+
+  ocrStopRequested = false;
+  const existingParagraphs = (record.ocrPartial && record.parsedParagraphs) ? record.parsedParagraphs.slice() : [];
+  const startPage = record.ocrResumeFrom || 1;
+
+  setReaderControlsVisible(true);
+
+  const inner = $('reader-inner');
+  inner.innerHTML = '';
+  const banner = document.createElement('div');
+  banner.className = 'mb-4 p-3 bg-ink text-white rounded-xl flex items-center justify-between gap-3 sticky top-0 z-10 shadow-pop-sm';
+  banner.innerHTML = `<span id="ocr-progress-text" class="text-[11px] flex-1">Menyiapkan OCR...</span>
+    <button type="button" id="ocr-stop-btn" class="bg-white/10 hover:bg-white/20 text-white text-[10px] font-display font-bold uppercase px-3 py-1.5 rounded-lg shrink-0">Berhenti di sini</button>`;
+  inner.appendChild(banner);
+  const liveTextEl = document.createElement('div');
+  inner.appendChild(liveTextEl);
+  existingParagraphs.forEach((p) => {
+    const el = document.createElement('p');
+    el.textContent = p;
+    liveTextEl.appendChild(el);
+  });
+  const progressTextEl = banner.querySelector('#ocr-progress-text');
+  banner.querySelector('#ocr-stop-btn').addEventListener('click', () => {
+    ocrStopRequested = true;
+    progressTextEl.textContent = 'Menghentikan setelah halaman ini selesai...';
+  });
+
+  try {
+    const arrayBuffer = await record.blob.arrayBuffer();
+    const result = await extractPdfParagraphsViaOCR(arrayBuffer, {
+      onStatus: (msg) => { progressTextEl.textContent = msg; },
+      onPageDone: (pageText, pageNum, total) => {
+        const p = document.createElement('p');
+        p.textContent = pageText;
+        liveTextEl.appendChild(p);
+        progressTextEl.textContent = `Halaman ${pageNum}/${total} selesai — lanjut memproses...`;
+      },
+      shouldStop: () => ocrStopRequested,
+    }, startPage);
+
+    const allParagraphs = existingParagraphs.concat(result.paragraphs);
+
+    if (allParagraphs.length === 0) {
+      inner.innerHTML = '<p class="text-sm opacity-60">OCR gak berhasil membaca teks apapun dari PDF ini.</p>';
+      return;
+    }
+
+    record.parsedParagraphs = allParagraphs;
+    record.readerMode = 'text';
+    record.viaOCR = true;
+    record.ocrPartial = result.stoppedEarly;
+    record.ocrResumeFrom = result.stoppedEarly ? result.lastPageDone + 1 : null;
+    savePdfRecord(mangaId, record);
+    readerState.paragraphs = allParagraphs;
+
+    renderReaderTextMode(allParagraphs, true, record.ocrPartial, mangaId);
+  } catch (e) {
+    inner.innerHTML = `<p class="text-sm opacity-60">OCR gagal: ${escapeHtml(e.message || 'error tidak diketahui')}</p>`;
+  }
+}
+
 async function openReader(mangaId) {
   const manga = mangaData.find((m) => m.id === mangaId);
   if (!manga) return;
@@ -1462,6 +1782,7 @@ async function openReader(mangaId) {
   readerState.mangaId = mangaId;
   $('reader-title').textContent = manga.title;
   $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Membuka buku...</p>';
+  setReaderControlsVisible(true);
   openReaderOverlay();
 
   try {
@@ -1471,50 +1792,81 @@ async function openReader(mangaId) {
       return;
     }
 
-    let paragraphs = record.parsedParagraphs;
-    let viaOCR = record.viaOCR || false;
-
-    if (!paragraphs) {
-      $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Mengekstrak teks dari PDF, tunggu sebentar...</p>';
-      const arrayBuffer = await record.blob.arrayBuffer();
-      paragraphs = await extractPdfParagraphs(arrayBuffer, (page, total) => {
-        $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Mengekstrak teks... (halaman ${page}/${total})</p>`;
-      });
-
-      if (paragraphs.length === 0) {
-        // Ekstraksi teks biasa gagal total -> kemungkinan PDF hasil scan gambar.
-        // Otomatis coba baca lewat OCR sebagai cadangan (lebih lambat).
-        $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Gak ada teks yang bisa diekstrak langsung — kemungkinan ini PDF hasil scan gambar. Mencoba baca lewat OCR sebagai cadangan...</p>';
-        const arrayBuffer2 = await record.blob.arrayBuffer();
-        paragraphs = await extractPdfParagraphsViaOCR(arrayBuffer2, (page, total, statusMsg) => {
-          if (statusMsg) {
-            $('reader-inner').innerHTML = `<p class="text-sm opacity-60">${escapeHtml(statusMsg)}</p>`;
-          } else if (page) {
-            $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Membaca lewat OCR... (halaman ${page}/${total}) — proses ini lebih lambat, mohon tunggu.</p>`;
-          }
-        });
-        viaOCR = true;
-      }
-
-      record.parsedParagraphs = paragraphs;
-      record.viaOCR = viaOCR;
-      savePdfRecord(mangaId, record); // cache biar gak perlu re-parse/re-OCR tiap buka
+    // Sudah pernah dibuka & modenya udah ketauan sebelumnya -> langsung pakai itu.
+    if (record.readerMode === 'text' && record.parsedParagraphs) {
+      readerState.paragraphs = record.parsedParagraphs;
+      setReaderControlsVisible(true);
+      renderReaderTextMode(record.parsedParagraphs, record.viaOCR || false, record.ocrPartial || false, mangaId);
+      restoreReaderProgress(mangaId);
+      return;
     }
-
-    readerState.paragraphs = paragraphs;
-    if (paragraphs.length === 0) {
-      $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Tidak ada teks yang bisa dibaca dari PDF ini, bahkan lewat OCR. Coba periksa apakah file PDF-nya valid.</p>';
+    if (record.readerMode === 'image') {
+      setReaderControlsVisible(false);
+      const arrayBuffer = await record.blob.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      await renderImagePages(pdf, $('reader-inner'));
+      applyImageZoom();
+      renderManualOcrOffer(mangaId);
+      restoreReaderProgress(mangaId);
       return;
     }
 
-    const ocrNote = viaOCR
-      ? '<p class="text-[11px] opacity-50 italic mb-5 pb-3 border-b border-current border-opacity-10">📷 Teks di bawah ini hasil OCR otomatis (bukan teks asli PDF) — mungkin ada typo atau salah baca karakter di beberapa bagian.</p>'
-      : '';
-    $('reader-inner').innerHTML = ocrNote + paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
-    applyReaderFontSize();
+    // Pertama kali dibuka: belum tau isinya kayak apa.
+    if (record.fileType === 'epub') {
+      // EPUB selalu berbasis teks (gak akan pernah berupa hasil scan gambar),
+      // jadi gak perlu fallback ke mode gambar kayak PDF.
+      $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Membuka EPUB, tunggu sebentar...</p>';
+      const arrayBuffer = await record.blob.arrayBuffer();
+      const paragraphs = await extractEpubParagraphs(arrayBuffer, (chapter, total) => {
+        $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Membuka EPUB... (bagian ${chapter}/${total})</p>`;
+      });
+      if (paragraphs.length > 0) {
+        record.parsedParagraphs = paragraphs;
+        record.readerMode = 'text';
+        savePdfRecord(mangaId, record);
+        readerState.paragraphs = paragraphs;
+        setReaderControlsVisible(true);
+        renderReaderTextMode(paragraphs, false, false, mangaId);
+        restoreReaderProgress(mangaId);
+      } else {
+        $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Gak ada teks yang bisa dibaca dari file EPUB ini — mungkin filenya rusak atau strukturnya gak biasa.</p>';
+      }
+      return;
+    }
+
+    // PDF: coba ekstraksi teks biasa dulu.
+    $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Mengekstrak teks dari PDF, tunggu sebentar...</p>';
+    const arrayBuffer = await record.blob.arrayBuffer();
+    const paragraphs = await extractPdfParagraphs(arrayBuffer, (page, total) => {
+      $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Mengekstrak teks... (halaman ${page}/${total})</p>`;
+    });
+
+    if (paragraphs.length > 0) {
+      record.parsedParagraphs = paragraphs;
+      record.readerMode = 'text';
+      savePdfRecord(mangaId, record);
+      readerState.paragraphs = paragraphs;
+      setReaderControlsVisible(true);
+      renderReaderTextMode(paragraphs, false, false, mangaId);
+      restoreReaderProgress(mangaId);
+      return;
+    }
+
+    // Gak ada teks sama sekali -> kemungkinan hasil scan. Tampilkan sebagai
+    // gambar halaman (CEPAT), bukan langsung OCR otomatis (LAMBAT) — OCR
+    // tetap ditawarkan tapi manual, biar user yang putuskan worth-it atau
+    // enggak buat nunggu.
+    record.readerMode = 'image';
+    savePdfRecord(mangaId, record);
+    setReaderControlsVisible(false);
+    const arrayBuffer2 = await record.blob.arrayBuffer();
+    const pdf2 = await pdfjsLib.getDocument({ data: arrayBuffer2 }).promise;
+    await renderImagePages(pdf2, $('reader-inner'));
+    applyImageZoom();
+    renderManualOcrOffer(mangaId);
     restoreReaderProgress(mangaId);
   } catch (e) {
-    $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Gagal membuka PDF: ${escapeHtml(e.message || 'error tidak diketahui')}</p>`;
+    $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Gagal membuka file: ${escapeHtml(e.message || 'error tidak diketahui')}</p>`;
   }
 }
 

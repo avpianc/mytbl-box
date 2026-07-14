@@ -9,6 +9,7 @@
     "@fontsource/baloo-2": "^5.2.7",
     "@fontsource/lora": "^5.2.8",
     "@fontsource/plus-jakarta-sans": "^5.2.8",
+    "jszip": "^3.10.1",
     "pdfjs-dist": "^3.11.174",
     "tesseract.js": "^5.1.1"
   }

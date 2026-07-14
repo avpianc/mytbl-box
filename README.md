@@ -9,8 +9,13 @@ Versi ini bisa di-"Add to Home Screen" / "Install" di **Android, iOS, Windows, M
 | Jalan di | Chrome desktop aja | Semua device (HP, tablet, laptop) |
 | Import otomatis dari Gramedia/Shopee | ✅ Ada | ❌ Tidak ada — ini murni kemampuan extension (content script), gak ada padanannya di web biasa |
 | Genre & total volume otomatis (Jikan/Google Books) | ✅ Ada | ✅ Ada juga (fetch langsung dari halaman) |
+| Tambah genre custom sendiri | ✅ Ada | ✅ Ada juga |
+| Pengarang/Penerbit/Harga/Sinopsis opsional (cuma Judul wajib) | ✅ Ada | ✅ Ada juga |
 | Mode Baca PDF (teks reflow) | ✅ Ada | ✅ Ada juga |
-| OCR otomatis untuk PDF hasil scan | ✅ Ada (butuh internet sekali di awal) | ✅ Ada juga (sama) |
+| Mode Baca EPUB | ✅ Ada | ✅ Ada juga |
+| Zoom buat mode gambar (PDF scan) | ✅ Ada | ✅ Ada juga |
+| PDF scan → tampil sbg gambar halaman (otomatis) | ✅ Ada | ✅ Ada juga |
+| OCR manual progresif + stop/lanjutkan (buat PDF scan) | ✅ Ada (butuh internet sekali di awal) | ✅ Ada juga (sama) |
 | Data tersimpan | `chrome.storage.local` | `localStorage` browser |
 | Cara pasang | Load unpacked | Install dari browser / Add to Home Screen |
 
