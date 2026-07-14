@@ -1349,6 +1349,63 @@ async function extractPdfParagraphs(arrayBuffer, onProgress) {
 }
 
 /* =========================================================================
+   OCR FALLBACK (Tesseract.js) — dipakai HANYA kalau ekstraksi teks biasa di
+   atas gagal total (paragraphs.length === 0), biasanya karena PDF-nya hasil
+   scan/foto halaman (gambar), bukan PDF dengan lapisan teks asli.
+   Prosesnya: tiap halaman PDF di-render jadi gambar (canvas), lalu gambar
+   itu "dibaca" satu-satu pakai OCR. INI JAUH LEBIH LAMBAT daripada
+   ekstraksi teks biasa — bisa beberapa detik s.d. semenit per halaman,
+   tergantung device. Model bahasa (Inggris + Indonesia) diunduh sekali saat
+   pertama dipakai (~beberapa MB), setelah itu Tesseract.js otomatis
+   menyimpannya di cache browser jadi lebih cepat di percobaan berikutnya.
+   ========================================================================= */
+let ocrWorkerInstance = null;
+async function getOcrWorker(onProgress) {
+  if (ocrWorkerInstance) return ocrWorkerInstance;
+  ocrWorkerInstance = await Tesseract.createWorker('eng+ind', 1, {
+    workerPath: 'vendor/tesseract/worker.min.js',
+    corePath: 'vendor/tesseract/tesseract-core-simd-lstm.js',
+    logger: (m) => {
+      if (onProgress) onProgress(m);
+    },
+  });
+  return ocrWorkerInstance;
+}
+
+async function renderPdfPageToCanvas(pdf, pageNum, scale) {
+  const page = await pdf.getPage(pageNum);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas;
+}
+
+async function extractPdfParagraphsViaOCR(arrayBuffer, onProgress) {
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const paragraphs = [];
+
+  const worker = await getOcrWorker((m) => {
+    if (m.status === 'loading language traineddata' || m.status === 'initializing api') {
+      if (onProgress) onProgress(null, null, 'Menyiapkan mesin OCR (unduh model bahasa sekali di awal)...');
+    }
+  });
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    if (onProgress) onProgress(pageNum, pdf.numPages, null);
+    const canvas = await renderPdfPageToCanvas(pdf, pageNum, 2);
+    const { data } = await worker.recognize(canvas);
+    const pageText = (data.text || '').trim();
+    if (pageText) paragraphs.push(pageText);
+  }
+
+  return paragraphs;
+}
+
+
+/* =========================================================================
    UPLOAD PDF DI FORM (drag/drop + klik, disimpan ke IndexedDB pas form
    disubmit — sama pola-nya kayak upload gambar sampul)
    ========================================================================= */
@@ -1415,23 +1472,45 @@ async function openReader(mangaId) {
     }
 
     let paragraphs = record.parsedParagraphs;
+    let viaOCR = record.viaOCR || false;
+
     if (!paragraphs) {
       $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Mengekstrak teks dari PDF, tunggu sebentar...</p>';
       const arrayBuffer = await record.blob.arrayBuffer();
       paragraphs = await extractPdfParagraphs(arrayBuffer, (page, total) => {
         $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Mengekstrak teks... (halaman ${page}/${total})</p>`;
       });
+
+      if (paragraphs.length === 0) {
+        // Ekstraksi teks biasa gagal total -> kemungkinan PDF hasil scan gambar.
+        // Otomatis coba baca lewat OCR sebagai cadangan (lebih lambat).
+        $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Gak ada teks yang bisa diekstrak langsung — kemungkinan ini PDF hasil scan gambar. Mencoba baca lewat OCR sebagai cadangan...</p>';
+        const arrayBuffer2 = await record.blob.arrayBuffer();
+        paragraphs = await extractPdfParagraphsViaOCR(arrayBuffer2, (page, total, statusMsg) => {
+          if (statusMsg) {
+            $('reader-inner').innerHTML = `<p class="text-sm opacity-60">${escapeHtml(statusMsg)}</p>`;
+          } else if (page) {
+            $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Membaca lewat OCR... (halaman ${page}/${total}) — proses ini lebih lambat, mohon tunggu.</p>`;
+          }
+        });
+        viaOCR = true;
+      }
+
       record.parsedParagraphs = paragraphs;
-      savePdfRecord(mangaId, record); // cache biar gak perlu re-parse tiap buka
+      record.viaOCR = viaOCR;
+      savePdfRecord(mangaId, record); // cache biar gak perlu re-parse/re-OCR tiap buka
     }
 
     readerState.paragraphs = paragraphs;
     if (paragraphs.length === 0) {
-      $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Tidak ada teks yang bisa diekstrak dari PDF ini (kemungkinan hasil scan gambar, bukan teks asli).</p>';
+      $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Tidak ada teks yang bisa dibaca dari PDF ini, bahkan lewat OCR. Coba periksa apakah file PDF-nya valid.</p>';
       return;
     }
 
-    $('reader-inner').innerHTML = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
+    const ocrNote = viaOCR
+      ? '<p class="text-[11px] opacity-50 italic mb-5 pb-3 border-b border-current border-opacity-10">📷 Teks di bawah ini hasil OCR otomatis (bukan teks asli PDF) — mungkin ada typo atau salah baca karakter di beberapa bagian.</p>'
+      : '';
+    $('reader-inner').innerHTML = ocrNote + paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
     applyReaderFontSize();
     restoreReaderProgress(mangaId);
   } catch (e) {

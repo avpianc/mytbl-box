@@ -10,6 +10,7 @@ Versi ini bisa di-"Add to Home Screen" / "Install" di **Android, iOS, Windows, M
 | Import otomatis dari Gramedia/Shopee | ✅ Ada | ❌ Tidak ada — ini murni kemampuan extension (content script), gak ada padanannya di web biasa |
 | Genre & total volume otomatis (Jikan/Google Books) | ✅ Ada | ✅ Ada juga (fetch langsung dari halaman) |
 | Mode Baca PDF (teks reflow) | ✅ Ada | ✅ Ada juga |
+| OCR otomatis untuk PDF hasil scan | ✅ Ada (butuh internet sekali di awal) | ✅ Ada juga (sama) |
 | Data tersimpan | `chrome.storage.local` | `localStorage` browser |
 | Cara pasang | Load unpacked | Install dari browser / Add to Home Screen |
 
@@ -52,7 +53,7 @@ mytbl-box-pwa/
 ├── manifest.webmanifest    # Metadata PWA (nama, ikon, warna tema)
 ├── sw.js                   # Service worker (bikin app bisa offline & installable)
 ├── app.css / app.js        # Sama seperti versi extension
-├── vendor/                 # PDF.js (Mozilla, open-source) untuk Mode Baca
+├── vendor/                 # PDF.js & Tesseract.js (open-source) untuk Mode Baca + OCR
 ├── icons/                  # Ikon app (192px, 512px, + versi maskable buat Android)
 └── fonts/
 ```

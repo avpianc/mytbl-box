@@ -2,7 +2,7 @@
 
 // Naikkan versi ini kalau ada perubahan besar di app shell, supaya browser
 // tau harus ambil ulang semua file-nya (bukan pakai cache lama).
-const CACHE_NAME = 'mytbl-box-shell-v3';
+const CACHE_NAME = 'mytbl-box-shell-v4';
 
 const APP_SHELL = [
   './',
@@ -27,6 +27,8 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './vendor/pdf.min.js',
   './vendor/pdf.worker.min.js',
+  './vendor/tesseract/tesseract.min.js',
+  './vendor/tesseract/worker.min.js',
 ];
 
 self.addEventListener('install', (event) => {
