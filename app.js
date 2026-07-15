@@ -123,7 +123,7 @@ let uploadedImageBase64 = '';
 let pendingPdfFile = null;   // File PDF/EPUB yang lagi dipilih di form, sebelum disimpan
 let pendingPdfFileType = 'pdf'; // 'pdf' | 'epub'
 let pendingPdfCleared = false; // flag: user eksplisit hapus file yang sebelumnya sudah tersimpan
-let readerState = { mangaId: null, paragraphs: [], fontSize: 19, theme: 'light', fontFamily: 'sans', imageZoom: 100 };
+let readerState = { mangaId: null, paragraphs: [], fontSize: 19, theme: 'light', fontFamily: 'sans', imageZoom: 100, pages: null, textBlocks: null };
 let confirmCallback = null;
 let selectedIds = new Set();
 let genreTouchedByUser = false;
@@ -1175,6 +1175,7 @@ function initEventListeners() {
       case 'reader-font-family-cycle': cycleReaderFontFamily(); break;
       case 'reader-zoom-dec': changeImageZoom(-15); break;
       case 'reader-zoom-inc': changeImageZoom(15); break;
+      case 'reader-zoom-reset': resetImageZoom(); break;
       case 'reader-prev-page': prevReaderPage(); break;
       case 'reader-next-page': nextReaderPage(); break;
       case 'open-edit': {
@@ -1536,7 +1537,7 @@ async function renderImagePages(pdf, container, onProgress) {
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     if (onProgress) onProgress(pageNum, pdf.numPages);
     const canvas = await renderPdfPageToCanvas(pdf, pageNum, 1.8);
-    canvas.className = 'w-full h-auto rounded-lg shadow-pop-sm mb-4 border-2 border-ink/10';
+    canvas.className = 'w-full h-auto';
     container.appendChild(canvas);
   }
 }
@@ -1662,23 +1663,31 @@ function setReaderControlsVisible(showTextControls) {
   $('reader-font-family-btn').classList.toggle('hidden', !showTextControls);
   $('reader-zoom-dec').classList.toggle('hidden', showTextControls);
   $('reader-zoom-inc').classList.toggle('hidden', showTextControls);
-  $('reader-inner').classList.toggle('max-w-2xl', showTextControls);
-  $('reader-inner').classList.toggle('max-w-3xl', !showTextControls);
+  $('reader-zoom-label').classList.toggle('hidden', showTextControls);
   $('reader-modal').classList.toggle('reader-mode-paginated', showTextControls);
   $('reader-modal').classList.toggle('reader-mode-paginated-image', !showTextControls);
   readerPagination.mode = showTextControls ? 'text' : 'image';
   if (!showTextControls) {
     readerState.imageZoom = 100; // reset tiap kali masuk buku/mode gambar baru
+    updateZoomLabel();
   }
+}
+function updateZoomLabel() {
+  $('reader-zoom-label').textContent = readerState.imageZoom + '%';
 }
 
 function applyImageZoom() {
   document.querySelectorAll('#reader-inner canvas').forEach((c) => {
     c.style.width = `${readerState.imageZoom}%`;
   });
+  updateZoomLabel();
 }
 function changeImageZoom(delta) {
   readerState.imageZoom = Math.min(250, Math.max(50, readerState.imageZoom + delta));
+  applyImageZoom();
+}
+function resetImageZoom() {
+  readerState.imageZoom = 100; // ukuran asli/default: pas penuh di lebar kanvas, gak di-zoom sama sekali
   applyImageZoom();
 }
 
@@ -1692,11 +1701,20 @@ async function renderReaderTextMode(paragraphs, viaOCR, isPartial, mangaId) {
   } else if (viaOCR) {
     note = '<p class="text-[11px] opacity-50 italic mb-5 pb-3 border-b border-current border-opacity-10">📷 Teks di bawah ini hasil OCR (bukan teks asli PDF) — mungkin ada typo atau salah baca karakter di beberapa bagian.</p>';
   }
-  $('reader-inner').innerHTML = note + paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
+
   applyReaderFontSize();
   readerPagination.currentPage = 1;
   readerPagination.totalPages = 1; // reset dulu biar gak kebawa rasio dari buku/halaman sebelumnya
-  await recalculateTextPagination(true);
+
+  const blocks = [];
+  if (note) blocks.push(note);
+  paragraphs.forEach((p) => blocks.push(`<p>${escapeHtml(p)}</p>`));
+
+  // Kanvas baru aja mungkin belum sempat ke-layout browsernya (khususnya
+  // pas modal baru dimunculin) — tunggu 1 frame biar ukurannya valid
+  // sebelum mulai ngukur & mecah halaman.
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  paginateAndRenderText(blocks, true);
 
   const continueBtn = document.getElementById('reader-continue-ocr-btn');
   if (continueBtn) continueBtn.addEventListener('click', () => runManualOCR(mangaId));
@@ -1704,7 +1722,7 @@ async function renderReaderTextMode(paragraphs, viaOCR, isPartial, mangaId) {
 
 function renderManualOcrOffer(mangaId) {
   const banner = document.createElement('div');
-  banner.className = 'mb-4 p-3 bg-white border-2 border-ink/10 rounded-xl flex items-center justify-between gap-3 flex-wrap';
+  banner.className = 'w-full mb-4 p-3 bg-white border-2 border-ink/10 rounded-xl flex items-center justify-between gap-3 flex-wrap';
   banner.innerHTML = `
     <span class="text-[11px] text-ink/60 flex-1 min-w-[180px]">PDF ini gak punya teks yang bisa dibaca langsung, jadi ditampilkan sebagai gambar halaman.</span>
     <button type="button" data-action="run-manual-ocr" class="btn-ghost !text-[10px] !px-3 !py-2 shrink-0">Coba baca sebagai teks (OCR, lambat)</button>`;
@@ -1890,6 +1908,8 @@ async function closeReader() {
   modal.classList.remove('flex');
   readerState.mangaId = null;
   readerState.paragraphs = [];
+  readerState.pages = null;
+  readerState.textBlocks = null;
 }
 
 let readerPagination = { mode: 'text', currentPage: 1, totalPages: 1 };
@@ -1901,7 +1921,7 @@ function changeReaderFontSize(delta) {
   readerState.fontSize = Math.min(30, Math.max(14, readerState.fontSize + delta));
   applyReaderFontSize();
   Storage.set('mytbl_reader_fontsize', readerState.fontSize);
-  if (readerPagination.mode === 'text') recalculateTextPagination();
+  if (readerPagination.mode === 'text') repaginateCurrentText();
 }
 
 const READER_THEMES = ['light', 'sepia', 'dark'];
@@ -1932,7 +1952,7 @@ function cycleReaderFontFamily() {
   readerState.fontFamily = READER_FONT_FAMILIES[(idx + 1) % READER_FONT_FAMILIES.length];
   applyReaderFontFamily();
   Storage.set('mytbl_reader_fontfamily', readerState.fontFamily);
-  if (readerPagination.mode === 'text') recalculateTextPagination();
+  if (readerPagination.mode === 'text') repaginateCurrentText();
 }
 
 /* =========================================================================
@@ -1958,9 +1978,12 @@ function goToReaderPage(pageNum, skipSave) {
     document.querySelectorAll('#reader-inner canvas').forEach((c, i) => {
       c.classList.toggle('reader-page-active', i === clamped - 1);
     });
-  } else {
-    const content = $('reader-content');
-    content.scrollLeft = content.clientWidth * (clamped - 1);
+  } else if (readerState.pages && readerState.pages[clamped - 1] !== undefined) {
+    // Tiap "halaman" teks itu BLOK KONTEN TERPISAH yang udah diukur pas
+    // muat persis di kanvas — jadi tinggal tukar innerHTML-nya, BUKAN
+    // scroll di dalam satu blok teks raksasa. Ini yang bikin halaman
+    // beneran "terkunci", gak ada lagi resiko geser/bocor dikit-dikit.
+    $('reader-inner').innerHTML = readerState.pages[clamped - 1];
   }
   updatePageIndicator();
   if (!skipSave) saveReaderProgress();
@@ -1968,66 +1991,127 @@ function goToReaderPage(pageNum, skipSave) {
 function nextReaderPage() { goToReaderPage(readerPagination.currentPage + 1); }
 function prevReaderPage() { goToReaderPage(readerPagination.currentPage - 1); }
 
-// Dipanggil tiap kali konten teks pertama kali dirender, ATAU tiap kali
-// ukuran/jenis font berubah (karena itu ngubah berapa banyak teks yang
-// muat per halaman) — recalculate total halaman lalu reposisi ke halaman
-// yang paling deket dengan posisi baca sebelumnya.
-function recalculateTextPagination(skipSave) {
-  return new Promise((resolve) => {
-    let settled = false;
-    const settle = () => { if (!settled) { settled = true; resolve(); } };
-    const content = $('reader-content');
-    const inner = $('reader-inner');
+/* =========================================================================
+   PAGINASI TEKS — mengukur konten ke dalam kanvas baca yang UKURANNYA
+   TETAP, lalu memecahnya jadi array "blok halaman" (masing-masing string
+   HTML utuh yang udah dipastikan muat). Ini menggantikan pendekatan lama
+   (CSS multi-column + geser scrollLeft) yang ternyata rawan meleset
+   beberapa pixel dan bikin teks halaman berikutnya "bocor" kelihatan di
+   tepi kanvas — apalagi makin banyak halaman, pembulatan pixelnya makin
+   nge-drift. Dengan tiap halaman jadi blok konten terpisah yang di-render
+   sendiri-sendiri (persis kayak cara mode gambar kerja), setiap halaman
+   dijamin PAS di kanvas, gak ada geser sama sekali.
+   ========================================================================= */
+function getTextMeasurer() {
+  let measurer = document.getElementById('reader-text-measurer');
+  if (!measurer) {
+    measurer = document.createElement('div');
+    measurer.id = 'reader-text-measurer';
+    measurer.style.cssText = 'position:fixed; top:-9999px; left:-9999px; visibility:hidden; pointer-events:none;';
+    document.body.appendChild(measurer);
+  }
+  return measurer;
+}
 
-    function finalize() {
-      if (settled) return;
-      const cw = content.clientWidth || 1;
-      const totalPages = Math.max(1, Math.round(inner.scrollWidth / cw));
-      const keepRatio = readerPagination.totalPages > 1
-        ? (readerPagination.currentPage - 1) / (readerPagination.totalPages - 1)
-        : 0;
-      readerPagination.totalPages = totalPages;
-      readerPagination.mode = 'text';
-      const newPage = Math.round(keepRatio * (totalPages - 1)) + 1;
-      goToReaderPage(newPage, skipSave);
-      settle();
+// Kalau satu paragraf SENDIRIAN aja udah kepanjangan buat 1 halaman
+// (jarang, tapi bisa kejadian di paragraf yang sangat panjang), dipecah
+// lagi per kata biar tetap muat.
+function splitOversizedBlock(blockHtml, measurer, innerWidth, canvasHeight) {
+  const temp = document.createElement('div');
+  temp.innerHTML = blockHtml;
+  const text = temp.textContent || '';
+  const words = text.split(' ');
+  const chunks = [];
+  let current = '';
+  measurer.style.width = innerWidth + 'px';
+  for (const word of words) {
+    const test = current ? current + ' ' + word : word;
+    measurer.innerHTML = `<p>${escapeHtml(test)}</p>`;
+    if (measurer.scrollHeight > canvasHeight && current) {
+      chunks.push(`<p>${escapeHtml(current)}</p>`);
+      current = word;
+    } else {
+      current = test;
     }
+  }
+  if (current) chunks.push(`<p>${escapeHtml(current)}</p>`);
+  return chunks.length > 0 ? chunks : [blockHtml];
+}
 
-    // Ukur berulang tiap frame sampai scrollWidth-nya STABIL (nilainya sama
-    // 3x berturut-turut) — jauh lebih andal daripada nunggu jumlah frame
-    // tetap, karena waktu yang dibutuhkan browser buat nyelesain layout
-    // kolom-kolom teks ini ternyata bisa beda-beda (terutama halaman
-    // extension kadang butuh lebih dari beberapa frame).
-    let lastScrollWidth = -1;
-    let stableCount = 0;
-    let attempts = 0;
-    function pollUntilStable() {
-      if (settled) return;
-      attempts++;
-      if (content.clientWidth === 0) {
-        if (attempts < 40) { requestAnimationFrame(pollUntilStable); return; }
-        settle();
-        return;
-      }
-      inner.style.columnWidth = content.clientWidth + 'px';
-      const currentScrollWidth = inner.scrollWidth;
-      if (currentScrollWidth === lastScrollWidth) {
-        stableCount++;
-      } else {
-        stableCount = 0;
-        lastScrollWidth = currentScrollWidth;
-      }
-      if (stableCount >= 3 || attempts >= 40) {
-        finalize();
-        return;
-      }
-      requestAnimationFrame(pollUntilStable);
+// Algoritma inti: coba tambahin blok konten (paragraf/catatan) satu-satu
+// ke halaman yang lagi disusun; begitu ukurannya kelebihan tinggi kanvas,
+// halaman itu ditutup dan blok yang gak muat pindah ke halaman baru.
+function paginateBlocks(blocks, innerWidth, canvasHeight, fontSize, fontFamily) {
+  const measurer = getTextMeasurer();
+  measurer.style.width = innerWidth + 'px';
+  measurer.style.fontSize = fontSize + 'px';
+  measurer.style.fontFamily = fontFamily === 'serif' ? "'Lora', Georgia, serif" : "'Plus Jakarta Sans', sans-serif";
+  measurer.style.lineHeight = '1.85';
+  measurer.style.letterSpacing = '0.01em';
+  measurer.className = 'reader-measurer-inner';
+
+  function heightOf(arr) {
+    measurer.innerHTML = arr.join('');
+    return measurer.scrollHeight;
+  }
+
+  const pages = [];
+  let current = [];
+  for (const block of blocks) {
+    const testArr = [...current, block];
+    if (heightOf(testArr) <= canvasHeight) {
+      current = testArr;
+      continue;
     }
-    requestAnimationFrame(pollUntilStable);
-    // Jaring pengaman terakhir: kalau semua di atas gagal karena alasan
-    // apapun, jangan sampai nge-hang selamanya — lanjut pakai apa adanya.
-    setTimeout(finalize, 1500);
-  });
+    if (current.length > 0) {
+      pages.push(current.join(''));
+      current = [];
+    }
+    if (heightOf([block]) <= canvasHeight) {
+      current = [block];
+    } else {
+      const subBlocks = splitOversizedBlock(block, measurer, innerWidth, canvasHeight);
+      for (let i = 0; i < subBlocks.length - 1; i++) pages.push(subBlocks[i]);
+      current = subBlocks.length > 0 ? [subBlocks[subBlocks.length - 1]] : [];
+    }
+  }
+  if (current.length > 0) pages.push(current.join(''));
+  return pages.length > 0 ? pages : [''];
+}
+
+// Ukur ukuran dalam kanvas yang SEBENARNYA (udah dikurangi padding), pecah
+// konten jadi halaman-halaman, simpan ke readerState.pages, lalu render
+// halaman yang sesuai (coba pertahankan posisi baca kalau ini pemanggilan
+// ulang gara-gara ganti font/tema, bukan pembukaan buku pertama kali).
+function paginateAndRenderText(blocks, skipSave) {
+  const canvas = $('reader-page');
+  const innerEl = $('reader-inner');
+  const cs = getComputedStyle(innerEl);
+  const paddingX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const paddingY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const innerWidth = Math.max(50, canvas.clientWidth - paddingX);
+  const canvasHeight = Math.max(50, canvas.clientHeight - paddingY);
+
+  const pages = paginateBlocks(blocks, innerWidth, canvasHeight, readerState.fontSize, readerState.fontFamily);
+
+  const keepRatio = readerPagination.totalPages > 1
+    ? (readerPagination.currentPage - 1) / (readerPagination.totalPages - 1)
+    : 0;
+
+  readerState.pages = pages;
+  readerState.textBlocks = blocks; // disimpan biar bisa di-paginate ulang pas ganti font/ukuran layar
+  readerPagination.totalPages = pages.length;
+  readerPagination.mode = 'text';
+  const newPage = Math.round(keepRatio * (pages.length - 1)) + 1;
+  goToReaderPage(newPage, skipSave);
+}
+
+// Dipanggil tiap ukuran/jenis font berubah, atau jendela di-resize — susun
+// ulang halaman dari blok teks yang udah tersimpan (gak perlu baca ulang
+// dari PDF/EPUB, cukup dari readerState.textBlocks yang udah ada).
+function repaginateCurrentText() {
+  if (!readerState.textBlocks) return;
+  paginateAndRenderText(readerState.textBlocks, false);
 }
 
 function setupImagePagination() {
@@ -2064,7 +2148,7 @@ function initReader() {
     if ($('reader-modal').classList.contains('hidden')) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (readerPagination.mode === 'text') recalculateTextPagination();
+      if (readerPagination.mode === 'text') repaginateCurrentText();
     }, 250);
   });
 

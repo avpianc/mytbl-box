@@ -334,6 +334,7 @@
         <button data-action="reader-font-dec" id="reader-font-dec" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perkecil font">A-</button>
         <button data-action="reader-font-inc" id="reader-font-inc" class="btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perbesar font">A+</button>
         <button data-action="reader-zoom-dec" id="reader-zoom-dec" class="hidden btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perkecil gambar">−</button>
+        <button data-action="reader-zoom-reset" id="reader-zoom-label" class="hidden !w-12 !h-8 rounded-xl border-2 border-ink text-[10px] font-bold bg-white hover:bg-paper transition" aria-label="Kembalikan ke ukuran asli (100%)" title="Klik buat kembali ke ukuran asli">100%</button>
         <button data-action="reader-zoom-inc" id="reader-zoom-inc" class="hidden btn-icon !w-8 !h-8 text-xs font-bold" aria-label="Perbesar gambar">+</button>
         <button data-action="reader-font-family-cycle" id="reader-font-family-btn" class="btn-icon !w-8 !h-8" aria-label="Ganti jenis huruf" title="Ganti jenis huruf">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
@@ -342,14 +343,16 @@
       </div>
     </div>
 
-    <div id="reader-content" class="flex-1 overflow-hidden relative">
-      <button data-action="reader-prev-page" id="reader-prev-btn" class="absolute left-0 top-0 bottom-0 w-1/4 md:w-1/6 z-10 flex items-center justify-start pl-1 md:pl-3 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-r from-black/5 to-transparent" aria-label="Halaman sebelumnya">
+    <div id="reader-content" class="flex-1 overflow-hidden relative flex items-center justify-center p-3 md:p-6">
+      <button data-action="reader-prev-page" id="reader-prev-btn" class="absolute left-0 top-0 bottom-0 w-1/4 md:w-1/5 z-10 flex items-center justify-start pl-1 md:pl-3 opacity-0 hover:opacity-100 transition-opacity" aria-label="Halaman sebelumnya">
         <span class="w-8 h-8 rounded-full bg-white border-2 border-ink shadow-pop-sm flex items-center justify-center text-sm font-bold">‹</span>
       </button>
-      <button data-action="reader-next-page" id="reader-next-btn" class="absolute right-0 top-0 bottom-0 w-1/4 md:w-1/6 z-10 flex items-center justify-end pr-1 md:pr-3 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-l from-black/5 to-transparent" aria-label="Halaman berikutnya">
+      <button data-action="reader-next-page" id="reader-next-btn" class="absolute right-0 top-0 bottom-0 w-1/4 md:w-1/5 z-10 flex items-center justify-end pr-1 md:pr-3 opacity-0 hover:opacity-100 transition-opacity" aria-label="Halaman berikutnya">
         <span class="w-8 h-8 rounded-full bg-white border-2 border-ink shadow-pop-sm flex items-center justify-center text-sm font-bold">›</span>
       </button>
-      <div id="reader-inner" class="mx-auto max-w-2xl px-6 py-10 transition-all"></div>
+      <div id="reader-page" class="reader-page-canvas">
+        <div id="reader-inner" class="px-6 py-8 md:px-9 md:py-10 transition-all"></div>
+      </div>
     </div>
 
     <div class="flex items-center justify-between gap-3 px-4 py-2 bg-white border-t-2 border-ink/10 shrink-0">

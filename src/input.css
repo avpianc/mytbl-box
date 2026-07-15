@@ -224,26 +224,58 @@
   #reader-inner p {
     margin-bottom: 1.3em;
   }
+  /* Elemen pengukur (buat mecah teks jadi halaman-halaman) HARUS identik
+     styling-nya sama #reader-inner, kalau enggak hasil ukurnya meleset dan
+     halaman jadi overflow/bocor keluar kanvas. */
+  #reader-text-measurer p {
+    margin-bottom: 1.3em;
+  }
   .reader-font-sans #reader-inner { font-family: 'Plus Jakarta Sans', sans-serif; }
   .reader-font-serif #reader-inner { font-family: 'Lora', Georgia, serif; }
-  .reader-theme-light #reader-content { background: #FBF6EC; color: #1A1A2E; }
-  .reader-theme-sepia #reader-content { background: #F3E9D3; color: #3A2E1F; }
-  .reader-theme-dark #reader-content { background: #17171F; color: #E7E4DC; }
 
-  /* Paginasi mode teks: #reader-inner "dipecah" jadi kolom-kolom selebar
-     kontainernya sendiri — browser otomatis nyusun teks ke kolom
-     berikutnya begitu kolom saat ini penuh (tinggi kontainer tetap/fixed).
-     Navigasi antar "halaman" tinggal geser scrollLeft per lebar kontainer. */
-  #reader-content { scroll-behavior: smooth; }
+  /* Warna "bezel" (area di luar kanvas) ngikut tema; kanvas halamannya
+     sendiri dapet warna sedikit beda (kayak kertas asli di atas meja)
+     plus border+shadow biar jelas kelihatan bentuknya "halaman". */
+  .reader-theme-light #reader-content { background: #FBF6EC; color: #1A1A2E; }
+  .reader-theme-light .reader-page-canvas { background: #FFFFFF; border-color: #1A1A2E; }
+  .reader-theme-sepia #reader-content { background: #EDE1C9; color: #3A2E1F; }
+  .reader-theme-sepia .reader-page-canvas { background: #FAF3E4; border-color: #3A2E1F; }
+  .reader-theme-dark #reader-content { background: #0E0E14; color: #E7E4DC; }
+  .reader-theme-dark .reader-page-canvas { background: #1B1B24; border-color: #3A3A46; }
+
+  /* Kanvas baca ukuran TETAP (bukan ngikutin lebar browser) — mirip layar
+     e-reader (rasio ~3:4 ala Kindle), supaya baris teks gak jadi kepanjangan
+     gak natural di monitor lebar. Menyusut otomatis di layar kecil/HP tanpa
+     motong teks, karena paginasinya dihitung ulang dari ukuran kanvas ini
+     sendiri (lihat recalculateTextPagination di app.js).*/
+  .reader-page-canvas {
+    width: min(640px, 100%);
+    height: min(840px, 100%);
+    border-width: 2.5px;
+    border-style: solid;
+    border-radius: 20px;
+    box-shadow: 6px 6px 0 rgba(26,26,46,0.12);
+    overflow: hidden;
+    position: relative;
+    transition: background .15s ease, border-color .15s ease;
+  }
+
+  /* Paginasi mode teks: tiap "halaman" sekarang blok konten HTML terpisah
+     yang di-render satu-satu ke #reader-inner (lihat paginateAndRenderText
+     & goToReaderPage di app.js) — bukan lagi CSS multi-column + geser
+     scrollLeft (pendekatan lama itu ternyata rawan meleset pixel dan bikin
+     teks halaman berikutnya "bocor" kelihatan di tepi kanvas). */
   .reader-mode-paginated #reader-inner {
     height: 100%;
-    column-gap: 0;
-    column-fill: auto;
+    overflow: hidden;
   }
 
   /* Paginasi mode gambar: semua halaman di-render tapi cuma yang aktif
-     yang ditampilkan (biar zoom & navigasi instan tanpa render ulang). */
-  .reader-mode-paginated-image #reader-inner canvas { display: none; }
+     yang ditampilkan (biar zoom & navigasi instan tanpa render ulang).
+     max-width/max-height 100% biar gambar HALAMAN utuh keliatan di dalam
+     kanvas (gak kepotong), bukan malah meluber. */
+  .reader-mode-paginated-image #reader-inner { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow: auto; }
+  .reader-mode-paginated-image #reader-inner canvas { display: none; max-width: 100%; height: auto; }
   .reader-mode-paginated-image #reader-inner canvas.reader-page-active {
     display: block;
     margin: 0 auto;
