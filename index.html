@@ -342,8 +342,21 @@
       </div>
     </div>
 
-    <div id="reader-content" class="flex-1 overflow-y-auto"><div id="reader-inner" class="mx-auto max-w-2xl px-6 py-10 transition-all"></div></div>
+    <div id="reader-content" class="flex-1 overflow-hidden relative">
+      <button data-action="reader-prev-page" id="reader-prev-btn" class="absolute left-0 top-0 bottom-0 w-1/4 md:w-1/6 z-10 flex items-center justify-start pl-1 md:pl-3 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-r from-black/5 to-transparent" aria-label="Halaman sebelumnya">
+        <span class="w-8 h-8 rounded-full bg-white border-2 border-ink shadow-pop-sm flex items-center justify-center text-sm font-bold">‹</span>
+      </button>
+      <button data-action="reader-next-page" id="reader-next-btn" class="absolute right-0 top-0 bottom-0 w-1/4 md:w-1/6 z-10 flex items-center justify-end pr-1 md:pr-3 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-l from-black/5 to-transparent" aria-label="Halaman berikutnya">
+        <span class="w-8 h-8 rounded-full bg-white border-2 border-ink shadow-pop-sm flex items-center justify-center text-sm font-bold">›</span>
+      </button>
+      <div id="reader-inner" class="mx-auto max-w-2xl px-6 py-10 transition-all"></div>
+    </div>
 
+    <div class="flex items-center justify-between gap-3 px-4 py-2 bg-white border-t-2 border-ink/10 shrink-0">
+      <button data-action="reader-prev-page" class="text-[11px] font-bold text-ink/60 hover:text-ink px-2 py-1">‹ Sebelumnya</button>
+      <span id="reader-page-indicator" class="text-[11px] font-bold text-ink/50">Halaman 1 / 1</span>
+      <button data-action="reader-next-page" class="text-[11px] font-bold text-ink/60 hover:text-ink px-2 py-1">Berikutnya ›</button>
+    </div>
     <div class="h-1 bg-ink/10 shrink-0"><div id="reader-progress-bar" class="h-full bg-coral" style="width:0%"></div></div>
   </div>
 

@@ -12,6 +12,9 @@ module.exports = {
     'reader-theme-dark',
     'reader-font-sans',
     'reader-font-serif',
+    'reader-mode-paginated',
+    'reader-mode-paginated-image',
+    'reader-page-active',
   ],
   theme: {
     extend: {

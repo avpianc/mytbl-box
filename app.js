@@ -1175,6 +1175,8 @@ function initEventListeners() {
       case 'reader-font-family-cycle': cycleReaderFontFamily(); break;
       case 'reader-zoom-dec': changeImageZoom(-15); break;
       case 'reader-zoom-inc': changeImageZoom(15); break;
+      case 'reader-prev-page': prevReaderPage(); break;
+      case 'reader-next-page': nextReaderPage(); break;
       case 'open-edit': {
         const idToEdit = activeDetailId;
         closeDetailModal();
@@ -1650,8 +1652,6 @@ function initPdfInput() {
 /* =========================================================================
    READER (mode baca ala e-reader, teks reflow)
    ========================================================================= */
-function getReaderProgressKey(id) { return `mytbl_reader_progress_${id}`; }
-
 // Font size & jenis huruf cuma relevan buat mode teks — disembunyikan pas
 // lagi nampilin gambar halaman biar toolbar gak nawarin kontrol yang gak
 // ada gunanya. Lebar kontainer juga disesuaikan: sempit & nyaman baca buat
@@ -1664,6 +1664,9 @@ function setReaderControlsVisible(showTextControls) {
   $('reader-zoom-inc').classList.toggle('hidden', showTextControls);
   $('reader-inner').classList.toggle('max-w-2xl', showTextControls);
   $('reader-inner').classList.toggle('max-w-3xl', !showTextControls);
+  $('reader-modal').classList.toggle('reader-mode-paginated', showTextControls);
+  $('reader-modal').classList.toggle('reader-mode-paginated-image', !showTextControls);
+  readerPagination.mode = showTextControls ? 'text' : 'image';
   if (!showTextControls) {
     readerState.imageZoom = 100; // reset tiap kali masuk buku/mode gambar baru
   }
@@ -1679,7 +1682,7 @@ function changeImageZoom(delta) {
   applyImageZoom();
 }
 
-function renderReaderTextMode(paragraphs, viaOCR, isPartial, mangaId) {
+async function renderReaderTextMode(paragraphs, viaOCR, isPartial, mangaId) {
   let note = '';
   if (viaOCR && isPartial) {
     note = `<div class="mb-5 pb-3 border-b border-current border-opacity-10 flex items-center justify-between gap-3 flex-wrap">
@@ -1691,6 +1694,9 @@ function renderReaderTextMode(paragraphs, viaOCR, isPartial, mangaId) {
   }
   $('reader-inner').innerHTML = note + paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('');
   applyReaderFontSize();
+  readerPagination.currentPage = 1;
+  readerPagination.totalPages = 1; // reset dulu biar gak kebawa rasio dari buku/halaman sebelumnya
+  await recalculateTextPagination(true);
 
   const continueBtn = document.getElementById('reader-continue-ocr-btn');
   if (continueBtn) continueBtn.addEventListener('click', () => runManualOCR(mangaId));
@@ -1769,7 +1775,7 @@ async function runManualOCR(mangaId) {
     savePdfRecord(mangaId, record);
     readerState.paragraphs = allParagraphs;
 
-    renderReaderTextMode(allParagraphs, true, record.ocrPartial, mangaId);
+    await renderReaderTextMode(allParagraphs, true, record.ocrPartial, mangaId);
   } catch (e) {
     inner.innerHTML = `<p class="text-sm opacity-60">OCR gagal: ${escapeHtml(e.message || 'error tidak diketahui')}</p>`;
   }
@@ -1796,8 +1802,8 @@ async function openReader(mangaId) {
     if (record.readerMode === 'text' && record.parsedParagraphs) {
       readerState.paragraphs = record.parsedParagraphs;
       setReaderControlsVisible(true);
-      renderReaderTextMode(record.parsedParagraphs, record.viaOCR || false, record.ocrPartial || false, mangaId);
-      restoreReaderProgress(mangaId);
+      await renderReaderTextMode(record.parsedParagraphs, record.viaOCR || false, record.ocrPartial || false, mangaId);
+      await restoreReaderProgress(mangaId);
       return;
     }
     if (record.readerMode === 'image') {
@@ -1805,9 +1811,10 @@ async function openReader(mangaId) {
       const arrayBuffer = await record.blob.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       await renderImagePages(pdf, $('reader-inner'));
+      setupImagePagination();
       applyImageZoom();
       renderManualOcrOffer(mangaId);
-      restoreReaderProgress(mangaId);
+      await restoreReaderProgress(mangaId);
       return;
     }
 
@@ -1826,8 +1833,8 @@ async function openReader(mangaId) {
         savePdfRecord(mangaId, record);
         readerState.paragraphs = paragraphs;
         setReaderControlsVisible(true);
-        renderReaderTextMode(paragraphs, false, false, mangaId);
-        restoreReaderProgress(mangaId);
+        await renderReaderTextMode(paragraphs, false, false, mangaId);
+        await restoreReaderProgress(mangaId);
       } else {
         $('reader-inner').innerHTML = '<p class="text-sm opacity-60">Gak ada teks yang bisa dibaca dari file EPUB ini — mungkin filenya rusak atau strukturnya gak biasa.</p>';
       }
@@ -1847,8 +1854,8 @@ async function openReader(mangaId) {
       savePdfRecord(mangaId, record);
       readerState.paragraphs = paragraphs;
       setReaderControlsVisible(true);
-      renderReaderTextMode(paragraphs, false, false, mangaId);
-      restoreReaderProgress(mangaId);
+      await renderReaderTextMode(paragraphs, false, false, mangaId);
+      await restoreReaderProgress(mangaId);
       return;
     }
 
@@ -1862,9 +1869,10 @@ async function openReader(mangaId) {
     const arrayBuffer2 = await record.blob.arrayBuffer();
     const pdf2 = await pdfjsLib.getDocument({ data: arrayBuffer2 }).promise;
     await renderImagePages(pdf2, $('reader-inner'));
+    setupImagePagination();
     applyImageZoom();
     renderManualOcrOffer(mangaId);
-    restoreReaderProgress(mangaId);
+    await restoreReaderProgress(mangaId);
   } catch (e) {
     $('reader-inner').innerHTML = `<p class="text-sm opacity-60">Gagal membuka file: ${escapeHtml(e.message || 'error tidak diketahui')}</p>`;
   }
@@ -1875,14 +1883,16 @@ function openReaderOverlay() {
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
-function closeReader() {
-  saveReaderProgress();
+async function closeReader() {
+  await saveReaderProgress();
   const modal = $('reader-modal');
   modal.classList.add('hidden');
   modal.classList.remove('flex');
   readerState.mangaId = null;
   readerState.paragraphs = [];
 }
+
+let readerPagination = { mode: 'text', currentPage: 1, totalPages: 1 };
 
 function applyReaderFontSize() {
   $('reader-inner').style.fontSize = readerState.fontSize + 'px';
@@ -1891,6 +1901,7 @@ function changeReaderFontSize(delta) {
   readerState.fontSize = Math.min(30, Math.max(14, readerState.fontSize + delta));
   applyReaderFontSize();
   Storage.set('mytbl_reader_fontsize', readerState.fontSize);
+  if (readerPagination.mode === 'text') recalculateTextPagination();
 }
 
 const READER_THEMES = ['light', 'sepia', 'dark'];
@@ -1921,36 +1932,157 @@ function cycleReaderFontFamily() {
   readerState.fontFamily = READER_FONT_FAMILIES[(idx + 1) % READER_FONT_FAMILIES.length];
   applyReaderFontFamily();
   Storage.set('mytbl_reader_fontfamily', readerState.fontFamily);
+  if (readerPagination.mode === 'text') recalculateTextPagination();
 }
 
-function saveReaderProgress() {
-  if (!readerState.mangaId) return;
-  const el = $('reader-content');
-  const max = el.scrollHeight - el.clientHeight;
-  const pct = max > 0 ? el.scrollTop / max : 0;
-  Storage.set(getReaderProgressKey(readerState.mangaId), pct);
-}
-async function restoreReaderProgress(mangaId) {
-  const pct = await Storage.get(getReaderProgressKey(mangaId));
-  const el = $('reader-content');
-  requestAnimationFrame(() => {
-    const max = el.scrollHeight - el.clientHeight;
-    el.scrollTop = (Number(pct) || 0) * max;
-    updateReaderProgressBar();
-  });
-}
-function updateReaderProgressBar() {
-  const el = $('reader-content');
-  const max = el.scrollHeight - el.clientHeight;
-  const pct = max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 0;
+/* =========================================================================
+   PAGINASI — teks (PDF/EPUB) pakai teknik CSS columns: #reader-inner
+   "dipecah" browser jadi kolom-kolom selebar kontainer, lalu navigasi
+   antar halaman tinggal geser scrollLeft per lebar kontainer. Mode gambar
+   (PDF hasil scan) lebih sederhana: semua <canvas> di-render sekali,
+   tapi cuma yang aktif yang ditampilkan.
+   ========================================================================= */
+function updatePageIndicator() {
+  $('reader-page-indicator').textContent = `Halaman ${readerPagination.currentPage} / ${readerPagination.totalPages}`;
+  const pct = readerPagination.totalPages > 1
+    ? Math.round(((readerPagination.currentPage - 1) / (readerPagination.totalPages - 1)) * 100)
+    : 100;
   $('reader-progress-bar').style.width = pct + '%';
 }
 
+function goToReaderPage(pageNum, skipSave) {
+  const clamped = Math.max(1, Math.min(readerPagination.totalPages, pageNum));
+  readerPagination.currentPage = clamped;
+
+  if (readerPagination.mode === 'image') {
+    document.querySelectorAll('#reader-inner canvas').forEach((c, i) => {
+      c.classList.toggle('reader-page-active', i === clamped - 1);
+    });
+  } else {
+    const content = $('reader-content');
+    content.scrollLeft = content.clientWidth * (clamped - 1);
+  }
+  updatePageIndicator();
+  if (!skipSave) saveReaderProgress();
+}
+function nextReaderPage() { goToReaderPage(readerPagination.currentPage + 1); }
+function prevReaderPage() { goToReaderPage(readerPagination.currentPage - 1); }
+
+// Dipanggil tiap kali konten teks pertama kali dirender, ATAU tiap kali
+// ukuran/jenis font berubah (karena itu ngubah berapa banyak teks yang
+// muat per halaman) — recalculate total halaman lalu reposisi ke halaman
+// yang paling deket dengan posisi baca sebelumnya.
+function recalculateTextPagination(skipSave) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = () => { if (!settled) { settled = true; resolve(); } };
+    const content = $('reader-content');
+    const inner = $('reader-inner');
+
+    function finalize() {
+      if (settled) return;
+      const cw = content.clientWidth || 1;
+      const totalPages = Math.max(1, Math.round(inner.scrollWidth / cw));
+      const keepRatio = readerPagination.totalPages > 1
+        ? (readerPagination.currentPage - 1) / (readerPagination.totalPages - 1)
+        : 0;
+      readerPagination.totalPages = totalPages;
+      readerPagination.mode = 'text';
+      const newPage = Math.round(keepRatio * (totalPages - 1)) + 1;
+      goToReaderPage(newPage, skipSave);
+      settle();
+    }
+
+    // Ukur berulang tiap frame sampai scrollWidth-nya STABIL (nilainya sama
+    // 3x berturut-turut) — jauh lebih andal daripada nunggu jumlah frame
+    // tetap, karena waktu yang dibutuhkan browser buat nyelesain layout
+    // kolom-kolom teks ini ternyata bisa beda-beda (terutama halaman
+    // extension kadang butuh lebih dari beberapa frame).
+    let lastScrollWidth = -1;
+    let stableCount = 0;
+    let attempts = 0;
+    function pollUntilStable() {
+      if (settled) return;
+      attempts++;
+      if (content.clientWidth === 0) {
+        if (attempts < 40) { requestAnimationFrame(pollUntilStable); return; }
+        settle();
+        return;
+      }
+      inner.style.columnWidth = content.clientWidth + 'px';
+      const currentScrollWidth = inner.scrollWidth;
+      if (currentScrollWidth === lastScrollWidth) {
+        stableCount++;
+      } else {
+        stableCount = 0;
+        lastScrollWidth = currentScrollWidth;
+      }
+      if (stableCount >= 3 || attempts >= 40) {
+        finalize();
+        return;
+      }
+      requestAnimationFrame(pollUntilStable);
+    }
+    requestAnimationFrame(pollUntilStable);
+    // Jaring pengaman terakhir: kalau semua di atas gagal karena alasan
+    // apapun, jangan sampai nge-hang selamanya — lanjut pakai apa adanya.
+    setTimeout(finalize, 1500);
+  });
+}
+
+function setupImagePagination() {
+  const canvases = document.querySelectorAll('#reader-inner canvas');
+  readerPagination.mode = 'image';
+  readerPagination.totalPages = Math.max(1, canvases.length);
+  readerPagination.currentPage = 1;
+  canvases.forEach((c, i) => c.classList.toggle('reader-page-active', i === 0));
+  updatePageIndicator();
+}
+
+function getReaderProgressKey(id) { return `mytbl_reader_progress_${id}`; }
+function saveReaderProgress() {
+  if (!readerState.mangaId) return Promise.resolve();
+  return Storage.set(getReaderProgressKey(readerState.mangaId), {
+    mode: readerPagination.mode,
+    page: readerPagination.currentPage,
+    totalPages: readerPagination.totalPages,
+  });
+}
+async function restoreReaderProgress(mangaId) {
+  const saved = await Storage.get(getReaderProgressKey(mangaId));
+  if (!saved || typeof saved !== 'object') { updatePageIndicator(); return; }
+  // Total halaman bisa beda dari terakhir kali (ukuran font berubah dll),
+  // jadi posisi disesuaikan proporsional, bukan diambil mentah-mentah.
+  const ratio = saved.totalPages > 1 ? (saved.page - 1) / (saved.totalPages - 1) : 0;
+  const targetPage = Math.round(ratio * (readerPagination.totalPages - 1)) + 1;
+  goToReaderPage(targetPage);
+}
+
 function initReader() {
-  $('reader-content').addEventListener('scroll', debounce(() => {
-    updateReaderProgressBar();
-    saveReaderProgress();
-  }, 300));
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if ($('reader-modal').classList.contains('hidden')) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (readerPagination.mode === 'text') recalculateTextPagination();
+    }, 250);
+  });
+
+  // Ketuk sisi kiri/kanan area baca buat pindah halaman — mirip kebiasaan
+  // app e-reader di HP (selain tombol panah yang udah ada).
+  $('reader-content').addEventListener('click', (e) => {
+    if (e.target.closest('#reader-prev-btn') || e.target.closest('#reader-next-btn')) return;
+    const rect = $('reader-content').getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width * 0.28) prevReaderPage();
+    else if (x > rect.width * 0.72) nextReaderPage();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if ($('reader-modal').classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') prevReaderPage();
+    else if (e.key === 'ArrowRight') nextReaderPage();
+  });
 }
 
 /* =========================================================================
